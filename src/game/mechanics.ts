@@ -94,14 +94,37 @@ export const MARKET_EVENTS: MarketEvent[] = [
   },
 ];
 
+let manualMarketEventId: string | null = null;
+
+export function setMarketEventOverride(eventId: string | null): MarketEvent | null {
+  if (!eventId || eventId === "auto") {
+    manualMarketEventId = null;
+    return null;
+  }
+  const found = MARKET_EVENTS.find((e) => e.id === eventId) || null;
+  manualMarketEventId = found ? found.id : null;
+  return found;
+}
+
+export function getMarketEventOverrideId(): string | null {
+  return manualMarketEventId;
+}
+
 export function getCurrentMarketEvent(nowMs = Date.now()): {
   event: MarketEvent;
   nextChangeUnixSec: number;
+  isOverride?: boolean;
 } {
   const hourBucket = Math.floor(nowMs / (3600 * 1000));
-  const event = MARKET_EVENTS[hourBucket % MARKET_EVENTS.length]!;
   const nextChangeUnixSec = (hourBucket + 1) * 3600;
-  return { event, nextChangeUnixSec };
+  if (manualMarketEventId) {
+    const forced = MARKET_EVENTS.find((e) => e.id === manualMarketEventId);
+    if (forced) {
+      return { event: forced, nextChangeUnixSec, isOverride: true };
+    }
+  }
+  const event = MARKET_EVENTS[hourBucket % MARKET_EVENTS.length]!;
+  return { event, nextChangeUnixSec, isOverride: false };
 }
 
 export interface PrestigeRank {

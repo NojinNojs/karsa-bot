@@ -16,6 +16,7 @@ import {
 } from "discord.js";
 import { CUSTOM_IDS } from "./definitions.ts";
 import {
+  BOT_STARTED_AT,
   COOP_PATUNGAN_COST_RP,
   COOP_RESCUE_COST_RP,
   DAILY_COOLDOWN_MS,
@@ -24,7 +25,11 @@ import {
   buyOrUpgradeBusiness,
   claimDailyBonus,
   claimPassiveIncome,
+  devClearAllCooldowns,
+  devModifyPlayer,
+  devSpawnDummyVictim,
   equipOrBuySkin,
+  getDeveloperTelemetry,
   getOrCreateServerCoop,
   getOrCreateUser,
   getTopLeaderboard,
@@ -33,6 +38,7 @@ import {
   investOrRescueCoop,
   registerNewUser,
   repayPinjolDebt,
+  resetAllUserData,
   takeShortcutGambleOrPinjol,
   workShift,
   type ServerCoopRow,
@@ -42,16 +48,20 @@ import {
 import {
   renderAzabCard,
   renderCoopCard,
+  renderDevMonitorCard,
   renderLeaderboardCard,
   renderPortfolioCard,
 } from "../renderer/pixelCard.ts";
 import { SKIN_PALETTES, type SkinId } from "../renderer/sprites.ts";
 import {
   BUSINESS_CATALOG,
+  MARKET_EVENTS,
   WORK_DILEMMAS,
   formatRpShort,
   getCurrentMarketEvent,
+  getMarketEventOverrideId,
   getRankForLevel,
+  setMarketEventOverride,
 } from "../game/mechanics.ts";
 import { buildHelpEmbedsAndComponents, type GuideCategoryId } from "../game/guide.ts";
 
@@ -572,7 +582,118 @@ export async function handleChatInputCommand(interaction: ChatInputCommandIntera
       components: [row],
       flags: MessageFlags.Ephemeral,
     });
+    return;
   }
+
+  if (commandName === "dev") {
+    if (!isDeveloperUser(interaction)) {
+      await interaction.reply({
+        content: "⛔ **Akses Ditolak:** Panel `/dev` khusus untuk Developer & Pemilik Server KARSA.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+    const guildId = interaction.guildId || "global_kota_mandiri";
+    const wsPing = Math.max(1, Math.round(interaction.client.ws.ping || 42));
+    await interaction.reply({
+      ...buildDevConsolePayload(guildId, wsPing),
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+}
+
+export function isDeveloperUser(
+  interaction: ChatInputCommandInteraction | ButtonInteraction | ModalSubmitInteraction | StringSelectMenuInteraction
+): boolean {
+  const uid = interaction.user.id;
+  const uname = interaction.user.username.toLowerCase();
+  const envOwner = process.env.DISCORD_OWNER_ID?.trim();
+  if (envOwner && uid === envOwner) return true;
+  if (uname === "nojs.nojin" || uname.includes("nojin") || uname.includes("aqsan")) return true;
+  if (interaction.guild && interaction.guild.ownerId === uid) return true;
+  return false;
+}
+
+export function buildDevConsolePayload(guildId: string, wsPingMs = 42, notice?: string) {
+  const tel = getDeveloperTelemetry(guildId);
+  const pngBuffer = renderDevMonitorCard(tel, wsPingMs);
+  const attachment = new AttachmentBuilder(pngBuffer, { name: "karsa-dev-monitor.png" });
+  const startedUnix = Math.floor(BOT_STARTED_AT / 1000);
+  const overrideId = getMarketEventOverrideId();
+
+  const recentAuditLines =
+    tel.recentLogs.length > 0
+      ? tel.recentLogs
+          .map((l) => {
+            const sign = l.amount >= 0 ? "+" : "-";
+            const amt = l.amount === 0 ? "" : ` (${sign}${formatRpShort(Math.abs(l.amount))})`;
+            return `• <t:${Math.floor(l.created_at / 1000)}:R> **${l.username}** — \`${l.kind}\`${amt}`;
+          })
+          .join("\n")
+      : "• *(Belum ada transaksi tercatat di database)*";
+
+  const embed = new EmbedBuilder()
+    .setColor(0x38f6ff)
+    .setTitle(`🛠️ KARSA Dev Ops & Telemetry • Ping ${wsPingMs}ms`)
+    .setDescription(
+      (notice ? `${notice}\n\n` : "") +
+        `**Runtime:** Bun \`v${tel.bunVersion}\`  •  **RAM RSS:** \`${tel.memoryRssMb} MB\` (Heap \`${tel.memoryHeapMb} MB\`)  •  **Nyala:** <t:${startedUnix}:R>\n` +
+        `**Database:** \`${tel.totalUsers}\` Warga  •  \`${tel.activeBizCount}\` Unit Usaha  •  \`${tel.seizedCount}\` Disegel  •  \`${tel.totalLogs}\` Log\n` +
+        `**Makro M2:** Total Harta **${formatRpShort(tel.totalNetWorth)}** (Kas **${formatRpShort(tel.totalCash)}** • Emas **${formatRpShort(tel.totalEmergency)}** • Koperasi **${formatRpShort(tel.coopPool)}**)\n` +
+        `**Cuaca Pasar:** ${tel.marketTitle} ${tel.marketOverride ? "*(🛠️ Override Manual)*" : "*(🔄 Rotasi Otomatis)*"}\n\n` +
+        `**📜 6 Transaksi Terakhir Server:**\n${recentAuditLines}`
+    )
+    .setImage("attachment://karsa-dev-monitor.png");
+
+  const marketSelect = new StringSelectMenuBuilder()
+    .setCustomId(CUSTOM_IDS.SELECT_DEV_MARKET)
+    .setPlaceholder("🌤️ Override Cuaca Ekonomi Pasar Server...")
+    .addOptions([
+      {
+        label: "🔄 Otomatis Per Jam (Default)",
+        description: "Kembalikan siklus cuaca pasar ke rotasi jam otomatis",
+        value: "auto",
+        default: !overrideId,
+      },
+      ...MARKET_EVENTS.map((ev) => ({
+        label: ev.title,
+        description: ev.goldBonusNote,
+        value: ev.id,
+        default: overrideId === ev.id,
+      })),
+    ]);
+
+  const rowSelect = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(marketSelect);
+
+  const rowActions = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(CUSTOM_IDS.BTN_DEV_REFRESH)
+      .setLabel("🔄 Segarkan Monitor")
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId(CUSTOM_IDS.BTN_DEV_CLEAR_CD)
+      .setLabel("⚡ Reset Cooldown")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(CUSTOM_IDS.BTN_DEV_GRANT_MODAL)
+      .setLabel("🎁 Suntik / Edit Pemain")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(CUSTOM_IDS.BTN_DEV_SPAWN_DUMMY)
+      .setLabel("🛟 Spawn Korban Segel")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(CUSTOM_IDS.BTN_DEV_WIPE_ASK)
+      .setLabel("🧹 Wipe DB")
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  return {
+    content: "",
+    embeds: [embed],
+    files: [attachment],
+    components: [rowSelect, rowActions],
+  };
 }
 
 export async function handleButtonInteraction(interaction: ButtonInteraction): Promise<void> {
@@ -581,6 +702,104 @@ export async function handleButtonInteraction(interaction: ButtonInteraction): P
   const uid = interaction.user.id;
   const uname = interaction.user.username;
   const guildId = interaction.guildId || "global_kota_mandiri";
+
+  // Developer Console Button Handlers
+  if (
+    id === CUSTOM_IDS.BTN_DEV_REFRESH ||
+    id === CUSTOM_IDS.BTN_DEV_CLEAR_CD ||
+    id === CUSTOM_IDS.BTN_DEV_GRANT_MODAL ||
+    id === CUSTOM_IDS.BTN_DEV_SPAWN_DUMMY ||
+    id === CUSTOM_IDS.BTN_DEV_WIPE_ASK ||
+    id === CUSTOM_IDS.BTN_DEV_WIPE_CONFIRM
+  ) {
+    if (!isDeveloperUser(interaction)) {
+      await interaction.reply({ content: "⛔ Khusus Developer KARSA.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+    const wsPing = Math.max(1, Math.round(interaction.client.ws.ping || 42));
+
+    if (id === CUSTOM_IDS.BTN_DEV_GRANT_MODAL) {
+      const modal = new ModalBuilder()
+        .setCustomId(CUSTOM_IDS.MODAL_DEV_GRANT)
+        .setTitle("🎁 Suntik Kas / Edit Stats Pemain");
+      const targetInput = new TextInputBuilder()
+        .setCustomId(CUSTOM_IDS.INPUT_DEV_TARGET)
+        .setLabel("Username / User ID (Kosong = Akunmu Sendiri)")
+        .setPlaceholder("Contoh: nojs.nojin atau kosongkan")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false);
+      const cashInput = new TextInputBuilder()
+        .setCustomId(CUSTOM_IDS.INPUT_DEV_CASH)
+        .setLabel("Kas Rp (+Tambah / -Kurang / Angka Pasti)")
+        .setPlaceholder("Contoh: +5000000 atau 2500000")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false);
+      const statsInput = new TextInputBuilder()
+        .setCustomId(CUSTOM_IDS.INPUT_DEV_STATS)
+        .setLabel("Level, Gems, Karma, atau ketik 'lunas'")
+        .setPlaceholder("Contoh: level=3, gems=15, karma=95, lunas")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false);
+
+      modal.addComponents(
+        new ActionRowBuilder<TextInputBuilder>().addComponents(targetInput),
+        new ActionRowBuilder<TextInputBuilder>().addComponents(cashInput),
+        new ActionRowBuilder<TextInputBuilder>().addComponents(statsInput)
+      );
+      await interaction.showModal(modal);
+      return;
+    }
+
+    await interaction.deferUpdate();
+    if (id === CUSTOM_IDS.BTN_DEV_REFRESH) {
+      await interaction.editReply(buildDevConsolePayload(guildId, wsPing, "✅ **Telemetri berhasil disegarkan!**"));
+      return;
+    }
+    if (id === CUSTOM_IDS.BTN_DEV_CLEAR_CD) {
+      const cleared = devClearAllCooldowns();
+      await interaction.editReply(
+        buildDevConsolePayload(guildId, wsPing, `⚡ **Seluruh Cooldown (\`/work\`, \`/daily\`, \`/bisnis\`) di-reset untuk ${cleared} pemain!**`)
+      );
+      return;
+    }
+    if (id === CUSTOM_IDS.BTN_DEV_SPAWN_DUMMY) {
+      const dummy = devSpawnDummyVictim(guildId);
+      await interaction.editReply(
+        buildDevConsolePayload(
+          guildId,
+          wsPing,
+          `🛟 **Pedagang Simulasi \`${dummy.username}\` (Tunggakan Rp 1,5Jt • Disegel) siap!** Kamu bisa ngetes tombol **Tebus Warga** di \`/koperasi\` atau cek \`/leaderboard\`.`
+        )
+      );
+      return;
+    }
+    if (id === CUSTOM_IDS.BTN_DEV_WIPE_ASK) {
+      const payload = buildDevConsolePayload(
+        guildId,
+        wsPing,
+        "⚠️ **KONFIRMASI WIPE DATABASE:** Klik tombol merah **🔥 YA, HAPUS SEMUA DATA** di bawah jika yakin ingin mereset seluruh pemain ke 0."
+      );
+      const confirmRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(CUSTOM_IDS.BTN_DEV_WIPE_CONFIRM)
+          .setLabel("🔥 YA, HAPUS SEMUA DATA KE 0")
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(CUSTOM_IDS.BTN_DEV_REFRESH)
+          .setLabel("🔙 Batal")
+          .setStyle(ButtonStyle.Secondary)
+      );
+      await interaction.editReply({ ...payload, components: [...payload.components, confirmRow] });
+      return;
+    }
+    if (id === CUSTOM_IDS.BTN_DEV_WIPE_CONFIRM) {
+      resetAllUserData();
+      await interaction.editReply(
+        buildDevConsolePayload(guildId, wsPing, "🧹 **DATABASE DIRESET BERSIH KE 0!** Seluruh statistik pemain & koperasi telah dikosongkan.")
+      );
+      return;
+    }
+  }
 
   if (id === CUSTOM_IDS.BTN_START_LAPAK) {
     await interaction.deferReply();
@@ -1013,6 +1232,30 @@ export async function handleButtonInteraction(interaction: ButtonInteraction): P
 export async function handleModalSubmitInteraction(interaction: ModalSubmitInteraction): Promise<void> {
   const uid = interaction.user.id;
   const uname = interaction.user.username;
+  const guildId = interaction.guildId || "global_kota_mandiri";
+
+  if (interaction.customId === CUSTOM_IDS.MODAL_DEV_GRANT) {
+    if (!isDeveloperUser(interaction)) {
+      await interaction.reply({ content: "⛔ Khusus Developer KARSA.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+    const targetQuery = interaction.fields.getTextInputValue(CUSTOM_IDS.INPUT_DEV_TARGET) || "";
+    const cashInput = interaction.fields.getTextInputValue(CUSTOM_IDS.INPUT_DEV_CASH) || "";
+    const statsInput = interaction.fields.getTextInputValue(CUSTOM_IDS.INPUT_DEV_STATS) || "";
+    const res = devModifyPlayer({
+      targetQuery,
+      callerId: uid,
+      callerName: uname,
+      cashInput,
+      statsInput,
+    });
+    const wsPing = Math.max(1, Math.round(interaction.client.ws.ping || 42));
+    await interaction.reply({
+      ...buildDevConsolePayload(guildId, wsPing, res.message),
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
 
   if (!hasUserAccount(uid)) {
     await interaction.reply(buildOnboardingPrompt());
@@ -1041,6 +1284,23 @@ export async function handleModalSubmitInteraction(interaction: ModalSubmitInter
 }
 
 export async function handleStringSelectMenuInteraction(interaction: StringSelectMenuInteraction): Promise<void> {
+  if (interaction.customId === CUSTOM_IDS.SELECT_DEV_MARKET) {
+    if (!isDeveloperUser(interaction)) {
+      await interaction.reply({ content: "⛔ Khusus Developer KARSA.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+    await interaction.deferUpdate();
+    const chosen = interaction.values[0] || "auto";
+    const forced = setMarketEventOverride(chosen);
+    const guildId = interaction.guildId || "global_kota_mandiri";
+    const wsPing = Math.max(1, Math.round(interaction.client.ws.ping || 42));
+    const notice = forced
+      ? `🌤️ **Cuaca Pasar Di-override ke:** ${forced.title} (${forced.goldBonusNote})`
+      : `🔄 **Cuaca Pasar Dikembalikan ke Rotasi Otomatis Per Jam!**`;
+    await interaction.editReply(buildDevConsolePayload(guildId, wsPing, notice));
+    return;
+  }
+
   if (interaction.customId !== CUSTOM_IDS.SELECT_SKIN_PREVIEW) return;
   if (!hasUserAccount(interaction.user.id)) {
     await interaction.reply(buildOnboardingPrompt());

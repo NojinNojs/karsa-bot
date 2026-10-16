@@ -6,7 +6,8 @@ import {
   type PortfolioV3Input,
 } from "./renderPortfolioV3.ts";
 import { renderLeaderboardV3 } from "./renderLeaderboardV3.ts";
-import type { LeaderboardEntry, ServerCoopRow } from "../db/index.ts";
+import { renderDevMonitorV3 } from "./renderDevMonitorV3.ts";
+import type { DeveloperTelemetry, LeaderboardEntry, ServerCoopRow } from "../db/index.ts";
 import type { SkinId } from "./sprites.ts";
 
 export interface PortfolioRenderInput extends PortfolioV3Input {
@@ -29,4 +30,8 @@ export function renderCoopCard(coop: ServerCoopRow): Buffer {
 
 export function renderLeaderboardCard(leaders: LeaderboardEntry[], coop: ServerCoopRow): Buffer {
   return renderLeaderboardV3(leaders, coop);
+}
+
+export function renderDevMonitorCard(telemetry: DeveloperTelemetry, wsPingMs = 42): Buffer {
+  return renderDevMonitorV3(telemetry, wsPingMs);
 }

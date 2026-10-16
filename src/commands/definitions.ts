@@ -57,6 +57,19 @@ export const CUSTOM_IDS = {
   SELECT_SKIN_PREVIEW: "select_skin_preview",
   BTN_SKIN_BUY_PREFIX: "btn_skin_buy:",
   BTN_SKIN_EQUIP_PREFIX: "btn_skin_equip:",
+
+  // Developer Ops & Telemetry Console (/dev)
+  BTN_DEV_REFRESH: "btn_dev_refresh",
+  BTN_DEV_CLEAR_CD: "btn_dev_clear_cd",
+  BTN_DEV_GRANT_MODAL: "btn_dev_grant_modal",
+  MODAL_DEV_GRANT: "modal_dev_grant",
+  INPUT_DEV_TARGET: "input_dev_target",
+  INPUT_DEV_CASH: "input_dev_cash",
+  INPUT_DEV_STATS: "input_dev_stats",
+  BTN_DEV_SPAWN_DUMMY: "btn_dev_spawn_dummy",
+  BTN_DEV_WIPE_ASK: "btn_dev_wipe_ask",
+  BTN_DEV_WIPE_CONFIRM: "btn_dev_wipe_confirm",
+  SELECT_DEV_MARKET: "select_dev_market",
 } as const;
 
 export const startCommand = new SlashCommandBuilder()
@@ -137,6 +150,12 @@ export const shopCommand = new SlashCommandBuilder()
     "🎨 Katalog tema Kartu Usaha dengan pratinjau langsung atas nama lapakmu."
   );
 
+export const devCommand = new SlashCommandBuilder()
+  .setName("dev")
+  .setDescription(
+    "🛠️ Panel kontrol, monitor telemetri real-time, simulasi pasar & alat uji Developer KARSA."
+  );
+
 export const COMMAND_BUILDERS = [
   startCommand,
   helpCommand,
@@ -149,6 +168,7 @@ export const COMMAND_BUILDERS = [
   leaderboardCommand,
   shopCommand,
   jalanPintasCommand,
+  devCommand,
 ] as const;
 
 export const COMMAND_DEFINITIONS: RESTPostAPIChatInputApplicationCommandsJSONBody[] =
