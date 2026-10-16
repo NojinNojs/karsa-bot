@@ -178,34 +178,54 @@ export function renderPortfolioV3(input: PortfolioV3Input): Buffer {
     saham_koperasi: "SYARAT: KEDAI LV.3",
   };
 
+  const kedaiLvl = businesses.find((x) => x.biz_type === "kedai_kopi")?.level ?? 1;
+
   businesses.slice(0, 3).forEach((b, idx) => {
     const ry = 61 + idx * 38; // y = 61, 99, 137 (each h=34, gap=4px, bottom=171 -> 7px pad inside 178)
     const cat = BUSINESS_CATALOG[b.biz_type];
-    const isLocked = b.level <= 0;
+    const isUnbought = b.level <= 0;
+    const reqKedai = cat?.requiredKedaiLevel ?? 1;
+    const reqKarma = cat?.requiredKarma ?? 0;
+    const prereqMet = kedaiLvl >= reqKedai && user.karma >= reqKarma;
+    const isReallyLocked = isUnbought && !prereqMet;
+    const isReadyToOpen = isUnbought && prereqMet;
 
     drawBevelPanel(ctx, 160, ry, 206, 34, T, {
-      fill: isLocked ? T.inset : T.surfaceAlt,
-      hi: isLocked ? T.shadow : T.highlight,
+      fill: isReallyLocked ? T.inset : T.surfaceAlt,
+      hi: isReallyLocked ? T.shadow : isReadyToOpen ? T.amber : T.highlight,
       lo: T.shadow,
       pad: 4,
     });
 
     // 24x24 Icon Slot (x=165, y=ry+5)
     drawInsetSlot(ctx, 165, ry + 5, 24, 24, T, { dither: true });
-    const iconName: SpriteV3Name = isLocked
+    const iconName: SpriteV3Name = isReallyLocked
       ? "segel_gembok_16"
       : (spriteByType[b.biz_type] || "gerobak_kopi_16");
     drawSpriteV3(ctx, iconName, 169, ry + 9, 1);
 
-    if (isLocked) {
+    if (isReallyLocked) {
       const lockedTitle =
         lockedTitleByType[b.biz_type] ??
         (b.name || cat?.name || "USAHA").toUpperCase().slice(0, 15);
-      const reqStr = lockRequirementByType[b.biz_type] ?? "BUKA DI /BISNIS";
+      const reqStr =
+        b.biz_type === "saham_koperasi" && kedaiLvl >= 3 && user.karma < 65
+          ? "SYARAT: NAMA BAIK 65"
+          : (lockRequirementByType[b.biz_type] ?? "BUKA DI KELOLA USAHA");
       drawPixelText(ctx, lockedTitle, 195, ry + 7, T.redHi, T.ink, 1);
       drawPixelText(ctx, reqStr, 195, ry + 19, T.amber, null, 1);
       drawPixelTextRight(ctx, fmtRp(0), 360, ry + 7, T.muted, T.ink, 1);
       drawPixelTextRight(ctx, "TERKUNCI", 360, ry + 19, T.muted, null, 1);
+    } else if (isReadyToOpen) {
+      const openTitle =
+        lockedTitleByType[b.biz_type] ??
+        (b.name || cat?.name || "USAHA").toUpperCase().slice(0, 15);
+      const rawOpenCost = cat?.baseCost ?? 2_000_000;
+      const openCost = user.karma >= 80 ? Math.round(rawOpenCost * 0.85) : rawOpenCost;
+      drawPixelText(ctx, openTitle, 195, ry + 7, T.amberHi, T.ink, 1);
+      drawPixelText(ctx, "KLIK KELOLA USAHA", 195, ry + 19, T.greenHi, null, 1);
+      drawPixelTextRight(ctx, fmtRp(openCost), 360, ry + 7, T.amberHi, T.ink, 1);
+      drawPixelTextRight(ctx, "SIAP BUKA", 360, ry + 19, T.greenHi, null, 1);
     } else {
       const title = (b.name || cat?.name || "Kedai Kopi Karsa").toUpperCase().slice(0, 18);
       const sub = (cat ? `LV.${b.level} • ${cat.subtitle}` : `LV.${b.level} • Gerobak`).toUpperCase().slice(0, 18);

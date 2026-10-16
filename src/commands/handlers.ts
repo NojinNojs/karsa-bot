@@ -215,17 +215,34 @@ function buildBusinessPanelPayload(user: UserRow, businesses: UserBusinessRow[],
   const sahamUnlocked = kedaiLvl >= 3 && user.karma >= 65;
   const canSaham = !isSeized && sahamUnlocked && user.balance >= upSaham.cost;
 
+  const emasStatusLabel =
+    upEmas.currentLevel > 0
+      ? `Lv.${upEmas.currentLevel}`
+      : emasUnlocked
+        ? "✨ Siap Dibuka!"
+        : "🔒 Terkunci";
+  const sahamStatusLabel =
+    upSaham.currentLevel > 0
+      ? `Lv.${upSaham.currentLevel}`
+      : sahamUnlocked
+        ? "✨ Siap Dibuka!"
+        : "🔒 Terkunci";
+
   const embed = new EmbedBuilder()
     .setColor(0x10b981)
     .setTitle(`🏪 Kelola Usaha • Kas ${formatRpShort(user.balance)}`)
     .setDescription(
       (headline ? `${headline}\n\n` : "") +
-        `☕ **Kedai Kopi Lv.${kedaiLvl}** → Lv.${upKedai.nextLevel}: **${formatRpShort(upKedai.cost)}**\n` +
-        `🛡️ **Tabungan Emas ${upEmas.currentLevel > 0 ? `Lv.${upEmas.currentLevel}` : "Terkunci"}** → ${
-          emasUnlocked ? `Lv.${upEmas.nextLevel}: **${formatRpShort(upEmas.cost)}**` : "🔒 Butuh **Kedai Lv.2**"
+        `☕ **Kedai Kopi Lv.${kedaiLvl}** → Naik ke Lv.${upKedai.nextLevel}: **${formatRpShort(upKedai.cost)}**\n` +
+        `🛡️ **Tabungan Emas (${emasStatusLabel})** → ${
+          emasUnlocked
+            ? `${upEmas.currentLevel === 0 ? "Buka" : "Naik ke"} Lv.${upEmas.nextLevel}: **${formatRpShort(upEmas.cost)}**`
+            : "🔒 Butuh **Kedai Lv.2**"
         }\n` +
-        `🤝 **Koperasi Warga ${upSaham.currentLevel > 0 ? `Lv.${upSaham.currentLevel}` : "Terkunci"}** → ${
-          sahamUnlocked ? `Lv.${upSaham.nextLevel}: **${formatRpShort(upSaham.cost)}**` : "🔒 Butuh **Kedai Lv.3 + Nama Baik 65**"
+        `🤝 **Koperasi Warga (${sahamStatusLabel})** → ${
+          sahamUnlocked
+            ? `${upSaham.currentLevel === 0 ? "Buka" : "Naik ke"} Lv.${upSaham.nextLevel}: **${formatRpShort(upSaham.cost)}**`
+            : "🔒 Butuh **Kedai Lv.3 + Nama Baik 65**"
         }`
     );
 
@@ -245,19 +262,23 @@ function buildBusinessPanelPayload(user: UserRow, businesses: UserBusinessRow[],
       .setLabel(
         !emasUnlocked
           ? "🔒 Emas (Butuh Kedai Lv.2)"
-          : `🛡️ Emas Lv.${upEmas.nextLevel} — ${formatRpShort(upEmas.cost)}`
+          : `🛡️ ${upEmas.currentLevel === 0 ? "Buka Emas" : `Emas Lv.${upEmas.nextLevel}`} — ${formatRpShort(upEmas.cost)}`
       )
-      .setStyle(canEmas ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setStyle(canEmas ? ButtonStyle.Success : ButtonStyle.Secondary)
       .setDisabled(!canEmas),
     new ButtonBuilder()
       .setCustomId(CUSTOM_IDS.BTN_BISNIS_SAHAM)
       .setLabel(
         !sahamUnlocked
           ? "🔒 Saham (Butuh Kedai Lv.3)"
-          : `🤝 Saham Lv.${upSaham.nextLevel} — ${formatRpShort(upSaham.cost)}`
+          : `🤝 ${upSaham.currentLevel === 0 ? "Buka Saham" : `Saham Lv.${upSaham.nextLevel}`} — ${formatRpShort(upSaham.cost)}`
       )
-      .setStyle(canSaham ? ButtonStyle.Primary : ButtonStyle.Secondary)
-      .setDisabled(!canSaham)
+      .setStyle(canSaham ? ButtonStyle.Success : ButtonStyle.Secondary)
+      .setDisabled(!canSaham),
+    new ButtonBuilder()
+      .setCustomId(CUSTOM_IDS.BTN_PORTFOLIO_REFRESH)
+      .setLabel("🪪 Kartu Usaha")
+      .setStyle(ButtonStyle.Secondary)
   );
 
   return { embeds: [embed], components: [row] };
