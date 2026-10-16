@@ -61,16 +61,17 @@ export function buildDevConsolePayload(guildId: string, wsPingMs = 42, notice?: 
 
   const embed = new EmbedBuilder()
     .setColor(0x38f6ff)
-    .setTitle(`🛠️ KARSA Dev Ops & Host Monitor • Ping ${wsPingMs}ms`)
+    .setTitle(`🛠️ KARSA Dev Ops & Container Monitor • Ping ${wsPingMs}ms`)
     .setDescription(
       (notice ? `${notice}\n\n` : "") +
-        `🖥️ **Spesifikasi Mesin Hosting & Container:**\n` +
-        `• **CPU:** \`${tel.cpuModel}\` (**${tel.cpuCores} Core** @ \`${tel.cpuSpeedMhz} MHz\`) • **Beban CPU:** \`${tel.cpuLoadPct}%\` *(Load 1m: ${tel.cpuLoad1m})*\n` +
-        `• **RAM Host:** **\`${tel.ramUsedGb} GB\`** terpakai dari **\`${tel.ramTotalGb} GB\`** (**${tel.ramPct}%** • Sisa \`${tel.ramFreeGb} GB\`) | **RAM Proses Bot:** \`${tel.memoryRssMb} MB\` RSS *(Heap ${tel.memoryHeapMb} MB)*\n` +
-        `• **Storage Disk:** **\`${tel.diskUsedGb} GB\`** / **\`${tel.diskTotalGb} GB\`** (**${tel.diskPct}%** • Sisa \`${tel.diskFreeGb} GB\`) | **Ukuran DB SQLite:** \`${tel.dbSizeKb}\`\n` +
-        `• **OS & Runtime:** \`${tel.osPlatform} (${tel.osArch})\` • Bun \`v${tel.bunVersion}\` • **Uptime Host:** \`${tel.hostUptimeShort}\` • **Bot Nyala:** <t:${startedUnix}:R>\n\n` +
-        `📊 **Statistik Ekonomi & Database Server:**\n` +
-        `• **Populasi:** \`${tel.totalUsers}\` Warga  •  \`${tel.activeBizCount}\` Unit Usaha  •  \`${tel.seizedCount}\` Disegel  •  \`${tel.totalLogs}\` Log\n` +
+        `🐳 **Spesifikasi & Beban Kontainer Docker (\`karsa-bot\`):**\n` +
+        `• **Kuota Kontainer:** **\`${tel.containerVcpu} vCPU\`** *(Limit)*  •  **\`${tel.containerRamLimitMb} MB RAM\`** *(Hard Cap / Reservasi 64 MB)*\n` +
+        `• **RAM Kontainer:** **\`${tel.containerRamUsedMb} MB\` / \`${tel.containerRamLimitMb} MB\` (${tel.containerRamPct}%)**  •  RSS Bun \`${tel.memoryRssMb} MB\` *(Heap ${tel.memoryHeapMb} MB)*\n` +
+        `• **Database & Runtime:** SQLite WAL \`${tel.dbSizeKb}\` (\`${tel.totalLogs}\` Log)  •  Bun \`v${tel.bunVersion}\`  •  **Nyala:** <t:${startedUnix}:R>\n\n` +
+        `🖥️ **Node Induk (Host Fisik / VPS):**\n` +
+        `• \`${tel.cpuModel}\` (**${tel.cpuCores} Core**, Load \`${tel.cpuLoadPct}%\`)  •  RAM Host \`${tel.ramUsedGb}/${tel.ramTotalGb} GB (${tel.ramPct}%)\`  •  Disk \`${tel.diskUsedGb}/${tel.diskTotalGb} GB (${tel.diskPct}%)\`\n\n` +
+        `📊 **Ekonomi Makro Server:**\n` +
+        `• **Populasi:** \`${tel.totalUsers}\` Warga  •  \`${tel.activeBizCount}\` Unit Usaha  •  \`${tel.seizedCount}\` Disegel\n` +
         `• **Suplai Uang (M2):** **${formatRpShort(tel.totalNetWorth)}** (Kas **${formatRpShort(tel.totalCash)}** • Emas **${formatRpShort(tel.totalEmergency)}** • Koperasi **${formatRpShort(tel.coopPool)}**)\n` +
         `• **Cuaca Pasar:** ${tel.marketTitle} ${tel.marketOverride ? "*(🛠️ Override Manual)*" : "*(🔄 Rotasi Otomatis)*"}\n\n` +
         `📜 **6 Transaksi Terakhir Server:**\n${recentAuditLines}`,

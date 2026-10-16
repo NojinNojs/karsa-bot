@@ -1,4 +1,4 @@
-import { statfsSync, statSync } from "node:fs";
+import { readFileSync, statfsSync, statSync } from "node:fs";
 import os from "node:os";
 import { getCurrentMarketEvent, getRankForLevel } from "../game/mechanics.ts";
 import { DB_PATH, isTestEnv, recordTransaction, sqlite } from "./connection.ts";
@@ -51,6 +51,44 @@ export function getDeveloperTelemetry(guildId = "global_kota_mandiri"): Develope
   const ramUsedGb = (usedMemBytes / 1024 ** 3).toFixed(1).replace(".", ",");
   const ramFreeGb = (freeMemBytes / 1024 ** 3).toFixed(1).replace(".", ",");
   const ramPct = Math.min(100, Math.max(1, Math.round((usedMemBytes / totalMemBytes) * 100)));
+
+  // Docker Container Cgroup v2 Quota & Live Usage (/sys/fs/cgroup)
+  let containerVcpu = "0,50";
+  let containerRamLimitMb = 256;
+  let containerRamUsedMb = memoryRssMb;
+  try {
+    const cpuMaxRaw = readFileSync("/sys/fs/cgroup/cpu.max", "utf-8").trim();
+    const [quotaStr, periodStr] = cpuMaxRaw.split(/\s+/);
+    if (quotaStr && quotaStr !== "max" && periodStr) {
+      const q = Number(quotaStr);
+      const p = Number(periodStr);
+      if (Number.isFinite(q) && Number.isFinite(p) && p > 0) {
+        containerVcpu = (q / p).toFixed(2).replace(".", ",");
+      }
+    }
+  } catch {
+    // Fallback to configured 0,50 vCPU
+  }
+  try {
+    const memMaxRaw = readFileSync("/sys/fs/cgroup/memory.max", "utf-8").trim();
+    if (memMaxRaw && memMaxRaw !== "max") {
+      const limBytes = Number(memMaxRaw);
+      if (Number.isFinite(limBytes) && limBytes > 0 && limBytes < 64 * 1024 ** 3) {
+        containerRamLimitMb = Math.max(32, Math.round(limBytes / (1024 * 1024)));
+      }
+    }
+    const memCurRaw = readFileSync("/sys/fs/cgroup/memory.current", "utf-8").trim();
+    const curBytes = Number(memCurRaw);
+    if (Number.isFinite(curBytes) && curBytes > 0 && curBytes <= containerRamLimitMb * 2 * 1024 * 1024) {
+      containerRamUsedMb = Math.max(memoryRssMb, Math.round(curBytes / (1024 * 1024)));
+    }
+  } catch {
+    // Fallback to process RSS vs 256MB limit
+  }
+  const containerRamPct = Math.min(
+    100,
+    Math.max(1, Math.round((containerRamUsedMb / Math.max(1, containerRamLimitMb)) * 100)),
+  );
 
   // Disk & SQLite DB File specs
   let diskUsedGb = "0,0";
@@ -162,6 +200,10 @@ export function getDeveloperTelemetry(guildId = "global_kota_mandiri"): Develope
     ramTotalGb,
     ramFreeGb,
     ramPct,
+    containerVcpu,
+    containerRamUsedMb,
+    containerRamLimitMb,
+    containerRamPct,
     diskUsedGb,
     diskTotalGb,
     diskFreeGb,

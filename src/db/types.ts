@@ -106,6 +106,10 @@ export interface DeveloperTelemetry {
   ramTotalGb: string;
   ramFreeGb: string;
   ramPct: number;
+  containerVcpu: string;
+  containerRamUsedMb: number;
+  containerRamLimitMb: number;
+  containerRamPct: number;
   diskUsedGb: string;
   diskTotalGb: string;
   diskFreeGb: string;

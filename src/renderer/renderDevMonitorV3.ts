@@ -51,11 +51,11 @@ export function renderDevMonitorV3(telemetry: DeveloperTelemetry, wsPingMs = 42)
     1,
   );
 
-  // 2. Left Column: Host Hardware Specs (x=12, y=40, w=136)
-  // L1: CPU Cores, Load & Chip Model (y=40, h=48)
+  // 2. Left Column: Docker Container Cgroup Specs (x=12, y=40, w=136)
+  // L1: Container vCPU Quota, Load & RAM Cap (y=40, h=48)
   drawBevelPanel(ctx, 12, 40, 136, 48, T, { pad: 6 });
-  drawPixelText(ctx, "SPESIFIKASI CPU HOST", 18, 46, T.muted, T.ink, 1);
-  drawPixelText(ctx, `${telemetry.cpuCores} CORE`, 18, 57, T.amberHi, T.ink, 1);
+  drawPixelText(ctx, "KONTAINER DOCKER", 18, 46, T.muted, T.ink, 1);
+  drawPixelText(ctx, `${telemetry.containerVcpu} VCPU`, 18, 57, T.amberHi, T.ink, 1);
   drawPixelTextRight(ctx, `LOAD ${telemetry.cpuLoadPct}%`, 142, 57, T.greenHi, T.ink, 1);
 
   drawBevelPanel(ctx, 18, 67, 124, 15, T, {
@@ -66,7 +66,7 @@ export function renderDevMonitorV3(telemetry: DeveloperTelemetry, wsPingMs = 42)
   });
   drawPixelTextCentered(
     ctx,
-    telemetry.cpuModelShort || `${telemetry.cpuCores}C • ${telemetry.osArch.toUpperCase()}`,
+    `LIMIT ${telemetry.containerRamLimitMb} MB RAM`,
     18,
     67,
     124,
@@ -76,44 +76,44 @@ export function renderDevMonitorV3(telemetry: DeveloperTelemetry, wsPingMs = 42)
     1,
   );
 
-  // L2: Host Storage & SQLite Database (y=94, h=36)
+  // L2: Container SQLite WAL Database & Entities (y=94, h=36)
   drawBevelPanel(ctx, 12, 94, 136, 36, T, { pad: 6 });
+  drawPixelText(ctx, `SQLITE ${telemetry.dbSizeKb} • ${telemetry.totalLogs} LOG`, 18, 100, T.muted, T.ink, 1);
+  drawPixelText(ctx, `${telemetry.totalUsers} WARGA`, 18, 113, T.crema, T.ink, 1);
+  drawPixelTextRight(ctx, `${telemetry.activeBizCount} USAHA`, 142, 113, T.amberHi, T.ink, 1);
+
+  // L3: Container RAM Gauge Used / Limit MB (y=136, h=42)
+  drawBevelPanel(ctx, 12, 136, 136, 42, T, { pad: 6 });
   drawPixelText(
     ctx,
-    `DISK ${telemetry.diskUsedGb}/${telemetry.diskTotalGb}GB (${telemetry.diskPct}%)`,
+    `RAM ${telemetry.containerRamUsedMb}/${telemetry.containerRamLimitMb}MB`,
     18,
-    100,
+    142,
     T.muted,
     T.ink,
     1,
   );
-  drawPixelText(ctx, `${telemetry.totalUsers} WARGA`, 18, 113, T.crema, T.ink, 1);
-  drawPixelTextRight(ctx, `DB ${telemetry.dbSizeKb}`, 142, 113, T.amberHi, T.ink, 1);
-
-  // L3: Host RAM Gauge Used / Total GB (y=136, h=42)
-  drawBevelPanel(ctx, 12, 136, 136, 42, T, { pad: 6 });
-  drawPixelText(ctx, `RAM ${telemetry.ramUsedGb}/${telemetry.ramTotalGb}GB`, 18, 142, T.muted, T.ink, 1);
   drawPixelTextRight(
     ctx,
-    `${telemetry.ramPct}%`,
+    `${telemetry.containerRamPct}%`,
     142,
     142,
-    telemetry.ramPct >= 85 ? T.redHi : T.greenHi,
+    telemetry.containerRamPct >= 85 ? T.redHi : T.greenHi,
     T.ink,
     1,
   );
   drawInsetSlot(ctx, 18, 152, 122, 10, T, { pad: 2 });
-  const segs = Math.round(Math.max(0, Math.min(100, telemetry.ramPct)) / 10);
+  const segs = Math.round(Math.max(0, Math.min(100, telemetry.containerRamPct)) / 10);
   for (let i = 0; i < 10; i++) {
     const sx = 20 + i * 12;
     if (i < segs) {
-      R(ctx, sx, 154, 10, 6, telemetry.ramPct >= 85 ? T.red : T.green);
-      R(ctx, sx, 154, 10, 1, telemetry.ramPct >= 85 ? T.redHi : T.greenHi);
+      R(ctx, sx, 154, 10, 6, telemetry.containerRamPct >= 85 ? T.red : T.green);
+      R(ctx, sx, 154, 10, 1, telemetry.containerRamPct >= 85 ? T.redHi : T.greenHi);
     } else {
       R(ctx, sx, 154, 10, 6, T.insetLo);
     }
   }
-  drawPixelText(ctx, `BOT ${telemetry.memoryRssMb}MB`, 18, 165, T.greenHi, T.ink, 1);
+  drawPixelText(ctx, `HEAP ${telemetry.memoryHeapMb}MB`, 18, 165, T.greenHi, T.ink, 1);
   drawPixelTextRight(ctx, `UP ${telemetry.uptimeShort}`, 142, 165, T.amberHi, T.ink, 1);
 
   // 3. Right Column: Macro Money Supply M1/M2 (x=154, y=40, w=218, h=138)
