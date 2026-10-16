@@ -634,14 +634,19 @@ export function buildDevConsolePayload(guildId: string, wsPingMs = 42, notice?: 
 
   const embed = new EmbedBuilder()
     .setColor(0x38f6ff)
-    .setTitle(`🛠️ KARSA Dev Ops & Telemetry • Ping ${wsPingMs}ms`)
+    .setTitle(`🛠️ KARSA Dev Ops & Host Monitor • Ping ${wsPingMs}ms`)
     .setDescription(
       (notice ? `${notice}\n\n` : "") +
-        `**Runtime:** Bun \`v${tel.bunVersion}\`  •  **RAM RSS:** \`${tel.memoryRssMb} MB\` (Heap \`${tel.memoryHeapMb} MB\`)  •  **Nyala:** <t:${startedUnix}:R>\n` +
-        `**Database:** \`${tel.totalUsers}\` Warga  •  \`${tel.activeBizCount}\` Unit Usaha  •  \`${tel.seizedCount}\` Disegel  •  \`${tel.totalLogs}\` Log\n` +
-        `**Makro M2:** Total Harta **${formatRpShort(tel.totalNetWorth)}** (Kas **${formatRpShort(tel.totalCash)}** • Emas **${formatRpShort(tel.totalEmergency)}** • Koperasi **${formatRpShort(tel.coopPool)}**)\n` +
-        `**Cuaca Pasar:** ${tel.marketTitle} ${tel.marketOverride ? "*(🛠️ Override Manual)*" : "*(🔄 Rotasi Otomatis)*"}\n\n` +
-        `**📜 6 Transaksi Terakhir Server:**\n${recentAuditLines}`
+        `🖥️ **Spesifikasi Mesin Hosting & Container:**\n` +
+        `• **CPU:** \`${tel.cpuModel}\` (**${tel.cpuCores} Core** @ \`${tel.cpuSpeedMhz} MHz\`) • **Beban CPU:** \`${tel.cpuLoadPct}%\` *(Load 1m: ${tel.cpuLoad1m})*\n` +
+        `• **RAM Host:** **\`${tel.ramUsedGb} GB\`** terpakai dari **\`${tel.ramTotalGb} GB\`** (**${tel.ramPct}%** • Sisa \`${tel.ramFreeGb} GB\`) | **RAM Proses Bot:** \`${tel.memoryRssMb} MB\` RSS *(Heap ${tel.memoryHeapMb} MB)*\n` +
+        `• **Storage Disk:** **\`${tel.diskUsedGb} GB\`** / **\`${tel.diskTotalGb} GB\`** (**${tel.diskPct}%** • Sisa \`${tel.diskFreeGb} GB\`) | **Ukuran DB SQLite:** \`${tel.dbSizeKb}\`\n` +
+        `• **OS & Runtime:** \`${tel.osPlatform} (${tel.osArch})\` • Bun \`v${tel.bunVersion}\` • **Uptime Host:** \`${tel.hostUptimeShort}\` • **Bot Nyala:** <t:${startedUnix}:R>\n\n` +
+        `📊 **Statistik Ekonomi & Database Server:**\n` +
+        `• **Populasi:** \`${tel.totalUsers}\` Warga  •  \`${tel.activeBizCount}\` Unit Usaha  •  \`${tel.seizedCount}\` Disegel  •  \`${tel.totalLogs}\` Log\n` +
+        `• **Suplai Uang (M2):** **${formatRpShort(tel.totalNetWorth)}** (Kas **${formatRpShort(tel.totalCash)}** • Emas **${formatRpShort(tel.totalEmergency)}** • Koperasi **${formatRpShort(tel.coopPool)}**)\n` +
+        `• **Cuaca Pasar:** ${tel.marketTitle} ${tel.marketOverride ? "*(🛠️ Override Manual)*" : "*(🔄 Rotasi Otomatis)*"}\n\n` +
+        `📜 **6 Transaksi Terakhir Server:**\n${recentAuditLines}`
     )
     .setImage("attachment://karsa-dev-monitor.png");
 
