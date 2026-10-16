@@ -1,0 +1,70 @@
+import type { WorkDilemma } from "./dilemmasPart1.ts";
+
+export const WORK_DILEMMAS_PART2: WorkDilemma[] = [
+  {
+    id: "hujan_deras",
+    title: "Tenda Bocor Saat Hujan",
+    context: "Hujan angin mengguyur pasar malam. Air mulai netes ke dekat stoples bubuk cokelat dan susu.",
+    ethicalChoice: {
+      label: "Beli Terpal Baru & Amankan Stok",
+      rewardRp: 470_000,
+      karmaDelta: 6,
+      xpDelta: 40,
+      outcomeText: "Tenda kering & hangat, pelanggan betah nongkrong lama!",
+    },
+    corruptChoice: {
+      label: "Tetap Jual Bubuk Lembap",
+      rewardRp: 890_000,
+      fineRp: 1_350_000,
+      auditChance: 0.45,
+      karmaDelta: -15,
+      xpDelta: 15,
+      successText: "Semua bubuk lembap habis terjual malam ini.",
+      bustedText: "Rasa minuman menggumpal & asam, pelanggan minta refund!",
+    },
+  },
+  {
+    id: "oknum_preman",
+    title: "Oknum Minta Jatah Kopi",
+    context: "Oknum petugas ketertiban minta 10 bungkus kopi gratis sambil janjiin 'bebas razia' kalau kamu mau ngasih uang rokok.",
+    ethicalChoice: {
+      label: "Tolak Sogokan & Lapor Paguyuban",
+      rewardRp: 510_000,
+      karmaDelta: 8,
+      xpDelta: 40,
+      outcomeText: "Pedagang satu deret kompak bela warungmu sampai oknumnya pergi!",
+    },
+    corruptChoice: {
+      label: "Kasih Amplop Biar Bebas",
+      rewardRp: 940_000,
+      fineRp: 1_600_000,
+      auditChance: 0.5,
+      karmaDelta: -20,
+      xpDelta: 10,
+      successText: "Dapat jalur cepat bongkar muat malam ini.",
+      bustedText: "Oknumnya kena OTT pengawas pasar, namamu ikut terseret!",
+    },
+  },
+  {
+    id: "kopi_viral",
+    title: "Antrean Viral Malam Minggu",
+    context: "Video warungmu masuk FYP! Antrean mengular 30 orang, tapi stok susu segar tinggal separuh.",
+    ethicalChoice: {
+      label: "Beli Susu Segar Tambahan di Minimarket",
+      rewardRp: 580_000,
+      karmaDelta: 7,
+      xpDelta: 45,
+      outcomeText: "Semua pelanggan baru ketagihan dan jadi langganan tetap!",
+    },
+    corruptChoice: {
+      label: "Encerkan Susu Pakai Air",
+      rewardRp: 1_050_000,
+      fineRp: 1_500_000,
+      auditChance: 0.5,
+      karmaDelta: -18,
+      xpDelta: 15,
+      successText: "Semua antrean terlayani dengan modal super tipis.",
+      bustedText: "Komentar medsos penuh keluhan rasa kopi hambar kayak air cucian!",
+    },
+  },
+];

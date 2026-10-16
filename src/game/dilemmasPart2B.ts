@@ -1,0 +1,70 @@
+import type { WorkDilemma } from "./dilemmasPart1.ts";
+
+export const WORK_DILEMMAS_PART2B: WorkDilemma[] = [
+  {
+    id: "mesin_grinder",
+    title: "Grinder Kopi Macet",
+    context: "Pisau grinder aus pas jam sibuk. Tukang servis minta ganti burr asli, tapi ada opsi pakai kopi bubuk instan saset.",
+    ethicalChoice: {
+      label: "Servis & Ganti Burr Asli",
+      rewardRp: 460_000,
+      karmaDelta: 6,
+      xpDelta: 35,
+      outcomeText: "Gilingan kopi kembali presisi, crema espresso tebal sempurna!",
+    },
+    corruptChoice: {
+      label: "Seduh Kopi Saset Diam-Diam",
+      rewardRp: 870_000,
+      fineRp: 1_300_000,
+      auditChance: 0.45,
+      karmaDelta: -15,
+      xpDelta: 15,
+      successText: "Pelanggan buru-buru nggak sadar bedanya.",
+      bustedText: "Pelanggan nemu bungkus saset di tempat sampah depan gerobak!",
+    },
+  },
+  {
+    id: "food_vlogger",
+    title: "Tawaran Review Settingan",
+    context: "Food vlogger lokal nawarin review bintang 5 sekaligus ngejelekin warung kopi sebelah dengan tarif khusus.",
+    ethicalChoice: {
+      label: "Tolak Kampanye Hitam, Undang Cicip Jujur",
+      rewardRp: 530_000,
+      karmaDelta: 9,
+      xpDelta: 45,
+      outcomeText: "Sang vlogger malah kagum sama kejujuranmu dan bikin konten positif gratis!",
+    },
+    corruptChoice: {
+      label: "Bayar Buat Jatuhin Pesaing",
+      rewardRp: 980_000,
+      fineRp: 1_750_000,
+      auditChance: 0.55,
+      karmaDelta: -22,
+      xpDelta: 10,
+      successText: "Pelanggan warung sebelah pindah ke tempatmu malam ini.",
+      bustedText: "Bukti chat bocor di warga pasar, reputasimu anjlok!",
+    },
+  },
+  {
+    id: "uang_kembalian",
+    title: "Uang Kembalian Lebih",
+    context: "Rombongan pembeli buru-buru bayar tunai Rp 200.000 saat hujan turun dan lupa menghitung uang kembalian Rp 50.000.",
+    ethicalChoice: {
+      label: "Kejar ke Parkiran, Balikin Rp 50rb",
+      rewardRp: 490_000,
+      karmaDelta: 9,
+      xpDelta: 45,
+      outcomeText: "Rombongan itu terharu, besoknya mereka borong 30 cup buat rapat kantor!",
+    },
+    corruptChoice: {
+      label: "Diam-diam Kantongi Selisihnya",
+      rewardRp: 900_000,
+      fineRp: 1_400_000,
+      auditChance: 0.55,
+      karmaDelta: -16,
+      xpDelta: 10,
+      successText: "Uang lebih masuk kantong malam ini.",
+      bustedText: "Mereka balik 10 menit kemudian cek struk, malu berat di depan antrean!",
+    },
+  },
+];

@@ -1,0 +1,70 @@
+import type { WorkDilemma } from "./dilemmasPart1.ts";
+
+export const WORK_DILEMMAS_PART1B: WorkDilemma[] = [
+  {
+    id: "gula_aren",
+    title: "Stok Gula Aren Cair",
+    context: "Gula aren murni langganan habis. Ada sales nawarin pemanis buatan murah yang manisnya 5x lipat.",
+    ethicalChoice: {
+      label: "Cari Gula Aren Asli",
+      rewardRp: 480_000,
+      karmaDelta: 5,
+      xpDelta: 35,
+      outcomeText: "Rasa manis legit es kopi susu kamu tetap juara!",
+    },
+    corruptChoice: {
+      label: "Pakai Pemanis Sintetis",
+      rewardRp: 920_000,
+      fineRp: 1_400_000,
+      auditChance: 0.45,
+      karmaDelta: -15,
+      xpDelta: 15,
+      successText: "Biaya modal gula turun drastis malam ini.",
+      bustedText: "Pembeli batuk-batuk habis minum dan minta uang kembali!",
+    },
+  },
+  {
+    id: "kemasan_cup",
+    title: "Gelas Cup & Sedotan",
+    context: "Cup tebal food-grade naik harga. Toko plastik pojok jual cup daur ulang tipis tanpa merek.",
+    ethicalChoice: {
+      label: "Pakai Cup Food-Grade",
+      rewardRp: 460_000,
+      karmaDelta: 5,
+      xpDelta: 35,
+      outcomeText: "Cup kokoh, ojol yang bawa pesanan senang karena anti tumpah!",
+    },
+    corruptChoice: {
+      label: "Beli Cup Tipis Murah",
+      rewardRp: 880_000,
+      fineRp: 1_250_000,
+      auditChance: 0.45,
+      karmaDelta: -14,
+      xpDelta: 15,
+      successText: "Hemat ratusan ribu dari belanja kemasan.",
+      bustedText: "3 cup pecah di tas kurir, kamu harus ganti rugi pesanan!",
+    },
+  },
+  {
+    id: "qris_tetangga",
+    title: "Insiden Stiker QRIS",
+    context: "Kamu nemu stiker QRIS palsu jatuh di dekat gerobak sebelah. Ada godaan buat nempel di meja orang.",
+    ethicalChoice: {
+      label: "Lapor ke Keamanan Pasar",
+      rewardRp: 520_000,
+      karmaDelta: 10,
+      xpDelta: 45,
+      outcomeText: "Ketua pasar ngasih uang apresiasi karena nyelametin pedagang lain!",
+    },
+    corruptChoice: {
+      label: "Abaikan & Cari Untung",
+      rewardRp: 950_000,
+      fineRp: 2_000_000,
+      auditChance: 0.6,
+      karmaDelta: -30,
+      xpDelta: 10,
+      successText: "Saldo gelap cair tanpa ketahuan.",
+      bustedText: "CCTV pasar ngerekam aksimu, kena sanksi berat paguyuban!",
+    },
+  },
+];

@@ -35,10 +35,7 @@ function buttonsOf(row: ReturnType<typeof buildStateAwarePortfolioRows>[number])
   return row.toJSON().components as unknown as ButtonJSON[];
 }
 
-function assertButtonRowPayload(
-  rows: ReturnType<typeof buildStateAwarePortfolioRows>,
-  context: string,
-): void {
+function assertButtonRowPayload(rows: ReturnType<typeof buildStateAwarePortfolioRows>, context: string): void {
   expect(rows.length).toBeLessThanOrEqual(DISCORD_LIMITS.maxRowsPerMessage);
   for (const row of rows) {
     const components = buttonsOf(row);
@@ -46,9 +43,7 @@ function assertButtonRowPayload(
     for (const btn of components) {
       expect(typeof btn.label).toBe("string");
       const label = btn.label ?? "";
-      expect(label.length, `${context}: button label "${label}" must be <= 80 chars`).toBeLessThanOrEqual(
-        DISCORD_LIMITS.maxButtonLabel,
-      );
+      expect(label.length, `${context}: button label "${label}" must be <= 80 chars`).toBeLessThanOrEqual(DISCORD_LIMITS.maxButtonLabel);
       expect(label.length, `${context}: button "${label}" must not be empty`).toBeGreaterThan(0);
     }
   }
@@ -58,10 +53,7 @@ function labelsOf(rows: ReturnType<typeof buildStateAwarePortfolioRows>): string
   return rows.flatMap((r) => buttonsOf(r).map((c) => c.label ?? ""));
 }
 
-function findButton(
-  rows: ReturnType<typeof buildStateAwarePortfolioRows>,
-  customId: string,
-): ButtonJSON | null {
+function findButton(rows: ReturnType<typeof buildStateAwarePortfolioRows>, customId: string): ButtonJSON | null {
   for (const row of rows) {
     for (const c of buttonsOf(row)) {
       if (c.custom_id === customId) return c;
@@ -149,11 +141,7 @@ describe("KARSA Discord UI — State-Driven Button Logic & Payload Limits", () =
 
   test("seized player with zero liquid cash: pay buttons are disabled (cannot pay with nothing)", () => {
     const _user = getOrCreateUser("ui_seized", "LapakSegel");
-    sqlite
-      .query(
-        "UPDATE users SET pinjol_debt = 43500000, balance = 0, emergency_fund = 0, is_seized = 1 WHERE id = ?",
-      )
-      .run("ui_seized");
+    sqlite.query("UPDATE users SET pinjol_debt = 43500000, balance = 0, emergency_fund = 0, is_seized = 1 WHERE id = ?").run("ui_seized");
     const seized = getOrCreateUser("ui_seized", "LapakSegel");
 
     const rows = buildStateAwarePortfolioRows(seized);
@@ -166,9 +154,7 @@ describe("KARSA Discord UI — State-Driven Button Logic & Payload Limits", () =
 
   test("every state produces labels that fit Discord's 80-char button limit", () => {
     const huge = getOrCreateUser("ui_debt", "NamaPedagangSangatPanjangSekali");
-    sqlite
-      .query("UPDATE users SET pinjol_debt = 999999999999, balance = 123456789 WHERE id = ?")
-      .run("ui_debt");
+    sqlite.query("UPDATE users SET pinjol_debt = 999999999999, balance = 123456789 WHERE id = ?").run("ui_debt");
     const loaded = getOrCreateUser("ui_debt", "NamaPedagangSangatPanjangSekali");
     const rows = buildStateAwarePortfolioRows(loaded);
     assertButtonRowPayload(rows, "huge-numbers");
@@ -191,14 +177,7 @@ describe("KARSA Discord UI — State-Driven Button Logic & Payload Limits", () =
     for (const rank of PRESTIGE_RANKS) {
       expect(rank.title.length, `Rank title "${rank.title}" must be <= 14 chars`).toBeLessThanOrEqual(14);
     }
-    const allBadges = [
-      "WARGA BARU",
-      "WARUNG JUJUR",
-      "WARGA PASAR",
-      "CATATAN MERAH",
-      "LAPAK DISEGEL",
-      "BANGKIT LAGI",
-    ];
+    const allBadges = ["WARGA BARU", "WARUNG JUJUR", "WARGA PASAR", "CATATAN MERAH", "LAPAK DISEGEL", "BANGKIT LAGI"];
     for (const badge of allBadges) {
       expect(badge.length, `Badge "${badge}" must be <= 13 chars`).toBeLessThanOrEqual(13);
     }
@@ -206,5 +185,59 @@ describe("KARSA Discord UI — State-Driven Button Logic & Payload Limits", () =
       const fullSub = `LV.9 • ${item.subtitle.toUpperCase()}`;
       expect(fullSub.length, `Business subtitle "${fullSub}" must be <= 18 chars`).toBeLessThanOrEqual(18);
     }
+  });
+
+  test("v1.5.0 Atomic Clean Architecture: every single .ts file in src/ is strictly <= 100 lines", async () => {
+    const { readdirSync, readFileSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const walk = (dir: string): string[] => {
+      const out: string[] = [];
+      for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) out.push(...walk(full));
+        else if (full.endsWith(".ts")) out.push(full);
+      }
+      return out;
+    };
+    const files = walk(join(process.cwd(), "src"));
+    expect(files.length).toBeGreaterThan(50);
+    for (const f of files) {
+      const lines = readFileSync(f, "utf-8").split("\n").length - (readFileSync(f, "utf-8").endsWith("\n") ? 1 : 0);
+      expect(lines, `File ${f} has ${lines} lines (must be <= 100)`).toBeLessThanOrEqual(100);
+    }
+  });
+
+  test("v1.5.0 Feedback, Update Notice, Render Cache & Concurrency Guard work cleanly", async () => {
+    const { submitUserFeedback, getRecentFeedback } = await import("../src/db/index.ts");
+    const { BOT_VERSION, buildUpdateInfoPayload } = await import("../src/game/mechanics.ts");
+    const { getCachedOrRenderPng, getRenderCacheStats } = await import("../src/renderer/renderCache.ts");
+    const { withUserLock } = await import("../src/commands/concurrencyGuard.ts");
+
+    expect(BOT_VERSION).toBe("1.5.0");
+    const upd = buildUpdateInfoPayload();
+    expect(upd.embeds.length).toBe(1);
+    expect(upd.components.length).toBe(1);
+
+    const fb = submitUserFeedback("u_fb_1", "AqsanTester", "Saran Fitur", "Tambahkan fitur koperasi patungan otomatis!");
+    expect(fb.username).toBe("AqsanTester");
+    const list = getRecentFeedback(5);
+    expect(list.length).toBeGreaterThanOrEqual(1);
+    expect(list[0]!.username).toBe("AqsanTester");
+
+    let calls = 0;
+    const b1 = getCachedOrRenderPng("test_key_v150", () => {
+      calls++;
+      return Buffer.from("89504e47", "hex");
+    });
+    const b2 = getCachedOrRenderPng("test_key_v150", () => {
+      calls++;
+      return Buffer.from("89504e47", "hex");
+    });
+    expect(calls).toBe(1);
+    expect(b1.equals(b2)).toBe(true);
+    expect(getRenderCacheStats().hits).toBeGreaterThanOrEqual(1);
+
+    const first = await withUserLock("u_lock_1", async () => "ok");
+    expect(first.locked).toBe(false);
   });
 });

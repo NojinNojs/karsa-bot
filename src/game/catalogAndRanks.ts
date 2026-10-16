@@ -85,18 +85,11 @@ export const BUSINESS_CATALOG: Record<string, BusinessCatalogItem> = {
 
 export function formatRpShort(val: number): string {
   const abs = Math.abs(val);
-  if (abs >= 1_000_000) {
-    const jt = val / 1_000_000;
-    return `Rp ${jt.toFixed(1).replace(/\.0$/, "").replace(".", ",")}Jt`;
-  }
-  if (abs >= 1_000) {
-    const rb = Math.round(val / 1_000);
-    return `Rp ${rb.toLocaleString("id-ID")}Rb`;
-  }
+  if (abs >= 1_000_000) return `Rp ${(val / 1_000_000).toFixed(1).replace(/\.0$/, "").replace(".", ",")}Jt`;
+  if (abs >= 1_000) return `Rp ${Math.round(val / 1_000).toLocaleString("id-ID")}Rb`;
   return `Rp ${val}`;
 }
 
 export function formatWalletK(val: number): string {
-  const k = Math.round(val / 1_000);
-  return `Rp${k.toLocaleString("id-ID")}K`;
+  return `Rp${Math.round(val / 1_000).toLocaleString("id-ID")}K`;
 }

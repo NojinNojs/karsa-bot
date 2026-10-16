@@ -14,12 +14,7 @@ import {
   takeShortcutGambleOrPinjol,
   workShift,
 } from "./db/index.ts";
-import {
-  renderAzabCard,
-  renderCoopCard,
-  renderLeaderboardCard,
-  renderPortfolioCard,
-} from "./renderer/pixelCard.ts";
+import { renderAzabCard, renderCoopCard, renderLeaderboardCard, renderPortfolioCard } from "./renderer/pixelCard.ts";
 
 export async function runRenderTests(): Promise<void> {
   const outDir = resolve(process.cwd(), "output");
@@ -40,9 +35,7 @@ export async function runRenderTests(): Promise<void> {
   const dtGold = (performance.now() - t0).toFixed(1);
   const goldPath = resolve(outDir, "portfolio_retro_gold.png");
   writeFileSync(goldPath, goldPng);
-  console.log(
-    `   ✅ [Render 1/6] portfolio_retro_gold.png (${(goldPng.length / 1024).toFixed(1)} KB in ${dtGold}ms)`,
-  );
+  console.log(`   ✅ [Render 1/6] portfolio_retro_gold.png (${(goldPng.length / 1024).toFixed(1)} KB in ${dtGold}ms)`);
 
   // 2. Render GameBoy DMG-01 Skin Preview
   const gbPng = renderPortfolioCard({ user, businesses, coop, overrideSkin: "gameboy_green" });

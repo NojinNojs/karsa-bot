@@ -12,8 +12,7 @@ export const MARKET_EVENTS: MarketEvent[] = [
   {
     id: "ihsg_goyang",
     title: "📉 IHSG & Rupiah Goyang",
-    description:
-      "Kebijakan fiskal ngawur bikin pasar modal panik, harga bahan baku impor naik tipis, tapi nilai **Tabungan Emas** warga ikut terkerek naik!",
+    description: "Kebijakan fiskal ngawur bikin pasar panik, tapi nilai **Tabungan Emas** warga ikut terkerek naik!",
     workMultiplier: 1.05,
     passiveMultiplier: 1.2,
     auditBonusChance: 0,
@@ -22,8 +21,7 @@ export const MARKET_EVENTS: MarketEvent[] = [
   {
     id: "hujan_malam_minggu",
     title: "🌧️ Hujan Deras Malam Minggu",
-    description:
-      "Warga berteduh di sekitar tenda pasar malam. Pesanan kopi panas dan roti bakar melonjak drastis sepanjang malam!",
+    description: "Warga berteduh di tenda pasar malam. Pesanan kopi panas melonjak drastis sepanjang malam!",
     workMultiplier: 1.25,
     passiveMultiplier: 1.1,
     auditBonusChance: -0.05,
@@ -32,8 +30,7 @@ export const MARKET_EVENTS: MarketEvent[] = [
   {
     id: "tanggal_gajian",
     title: "☀️ Malam Gajian Kantoran",
-    description:
-      "Anak kos, ojol, dan pekerja kantoran lagi pegang uang tunai. Antrean es kopi susu gula aren mengular sampai ke jalan!",
+    description: "Anak kos, ojol, dan pekerja kantoran lagi pegang uang tunai. Antrean kopi susu mengular!",
     workMultiplier: 1.2,
     passiveMultiplier: 1.15,
     auditBonusChance: 0,
@@ -42,8 +39,7 @@ export const MARKET_EVENTS: MarketEvent[] = [
   {
     id: "aturan_ngawur",
     title: "🏛️ Pejabat Bikin Aturan Dadakan",
-    description:
-      "Pejabat daerah bikin aturan retribusi mendadak tanpa sosialisasi. Petugas pasar keliling lebih sering melakukan sidak takaran!",
+    description: "Aturan retribusi mendadak tanpa sosialisasi. Petugas pasar lebih sering melakukan sidak takaran!",
     workMultiplier: 1.0,
     passiveMultiplier: 0.95,
     auditBonusChance: 0.12,
@@ -52,8 +48,7 @@ export const MARKET_EVENTS: MarketEvent[] = [
   {
     id: "panen_raya_gayo",
     title: "🌾 Panen Raya Kopi Gayo",
-    description:
-      "Kiriman karung biji Arabika Gayo dari pengepul datang melimpah dengan harga miring dan kualitas super wangi.",
+    description: "Kiriman karung biji Arabika Gayo dari pengepul datang melimpah dengan kualitas super wangi.",
     workMultiplier: 1.18,
     passiveMultiplier: 1.12,
     auditBonusChance: 0,
@@ -62,8 +57,7 @@ export const MARKET_EVENTS: MarketEvent[] = [
   {
     id: "festival_koperasi",
     title: "🔥 Bazar & Malam Koperasi Warga",
-    description:
-      "Paguyuban pedagang pasar menggelar bazar malam. Seluruh lapak dan koperasi warga kebanjiran pembeli dari luar komplek!",
+    description: "Paguyuban pedagang menggelar bazar malam. Seluruh lapak dan koperasi kebanjiran pembeli!",
     workMultiplier: 1.15,
     passiveMultiplier: 1.25,
     auditBonusChance: -0.05,
@@ -87,19 +81,12 @@ export function getMarketEventOverrideId(): string | null {
   return manualMarketEventId;
 }
 
-export function getCurrentMarketEvent(nowMs = Date.now()): {
-  event: MarketEvent;
-  nextChangeUnixSec: number;
-  isOverride?: boolean;
-} {
+export function getCurrentMarketEvent(nowMs = Date.now()) {
   const hourBucket = Math.floor(nowMs / (3600 * 1000));
   const nextChangeUnixSec = (hourBucket + 1) * 3600;
   if (manualMarketEventId) {
     const forced = MARKET_EVENTS.find((e) => e.id === manualMarketEventId);
-    if (forced) {
-      return { event: forced, nextChangeUnixSec, isOverride: true };
-    }
+    if (forced) return { event: forced, nextChangeUnixSec, isOverride: true };
   }
-  const event = MARKET_EVENTS[hourBucket % MARKET_EVENTS.length]!;
-  return { event, nextChangeUnixSec, isOverride: false };
+  return { event: MARKET_EVENTS[hourBucket % MARKET_EVENTS.length]!, nextChangeUnixSec, isOverride: false };
 }

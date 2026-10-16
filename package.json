@@ -1,6 +1,6 @@
 {
   "name": "kota-mandiri-bot",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Karsa \u2014 Bot RPG Ekonomi & Tycoon Nusantara untuk Discord dengan Kartu Pixel-Art Canvas, Usaha Lokal, dan Koperasi Komunitas.",
   "type": "module",
   "module": "src/index.ts",

@@ -21,12 +21,7 @@ import {
   takeShortcutGambleOrPinjol,
   workShift,
 } from "../src/db/index.ts";
-import {
-  getCurrentMarketEvent,
-  getRankForLevel,
-  MARKET_EVENTS,
-  PRESTIGE_RANKS,
-} from "../src/game/mechanics.ts";
+import { getCurrentMarketEvent, getRankForLevel, MARKET_EVENTS, PRESTIGE_RANKS } from "../src/game/mechanics.ts";
 import {
   renderAzabCard,
   renderCoopCard,
@@ -128,9 +123,7 @@ describe("KARSA Bot — Unit & Integration Test Suite", () => {
       const userAfter = getOrCreateUser("test_u_rollback", "WargaRollback");
       expect(userAfter.balance).toBe(initialBalance);
 
-      const uncommittedLog = sqlite
-        .query("SELECT * FROM ledger_logs WHERE user_id = ? AND kind = 'UNCOMMITTED_TX'")
-        .get("test_u_rollback");
+      const uncommittedLog = sqlite.query("SELECT * FROM ledger_logs WHERE user_id = ? AND kind = 'UNCOMMITTED_TX'").get("test_u_rollback");
       expect(uncommittedLog).toBeNull();
     });
   });
@@ -204,9 +197,10 @@ describe("KARSA Bot — Unit & Integration Test Suite", () => {
       expect(res.karmaDelta).toBeLessThan(0);
       expect(res.user.karma).toBeLessThan(before.karma);
 
-      const log = sqlite
-        .query("SELECT kind, amount FROM ledger_logs WHERE user_id = ? AND kind = 'WORK_CORRUPT'")
-        .get("test_u_work") as { kind: string; amount: number } | null;
+      const log = sqlite.query("SELECT kind, amount FROM ledger_logs WHERE user_id = ? AND kind = 'WORK_CORRUPT'").get("test_u_work") as {
+        kind: string;
+        amount: number;
+      } | null;
       expect(log).not.toBeNull();
     });
   });
@@ -280,16 +274,9 @@ describe("KARSA Bot — Unit & Integration Test Suite", () => {
   describe("5. Seizure Lockdown, Debt Repayment & Koperasi Rescue (/jalan-pintas & /koperasi)", () => {
     test("seizure locks upgrades & passive claims, preserves emergency_fund, and repayPinjolDebt lifts the seal", () => {
       getOrCreateUser("test_u_victim", "KorbanPinjol");
-      sqlite
-        .query("UPDATE users SET balance = 5000000, emergency_fund = 12000000 WHERE id = ?")
-        .run("test_u_victim");
+      sqlite.query("UPDATE users SET balance = 5000000, emergency_fund = 12000000 WHERE id = ?").run("test_u_victim");
 
-      const shortcutRes = takeShortcutGambleOrPinjol(
-        "test_u_victim",
-        "KorbanPinjol",
-        "pinjol",
-        TEST_GUILD_ID,
-      );
+      const shortcutRes = takeShortcutGambleOrPinjol("test_u_victim", "KorbanPinjol", "pinjol", TEST_GUILD_ID);
 
       expect(shortcutRes.user.is_seized).toBe(1);
       expect(shortcutRes.user.pinjol_debt).toBeGreaterThanOrEqual(2_000_000);
@@ -318,9 +305,7 @@ describe("KARSA Bot — Unit & Integration Test Suite", () => {
       expect(blockedCoop.ok).toBe(false);
 
       // Promote to Level 2 with Rp 20M balance
-      sqlite
-        .query("UPDATE users SET level = 2, balance = 20000000, karma = 75 WHERE id = ?")
-        .run("test_u_coop");
+      sqlite.query("UPDATE users SET level = 2, balance = 20000000, karma = 75 WHERE id = ?").run("test_u_coop");
       const coopBefore = getOrCreateServerCoop(TEST_GUILD_ID);
 
       const patunganRes = investOrRescueCoop("test_u_coop", "WargaKoperasi", "patungan", TEST_GUILD_ID);
@@ -328,9 +313,7 @@ describe("KARSA Bot — Unit & Integration Test Suite", () => {
       expect(patunganRes.coop.pool_balance).toBe(coopBefore.pool_balance + 1_500_000);
       expect((patunganRes.coop.contributors || []).length).toBeGreaterThanOrEqual(1);
       // Verify patungan at Level 2 does NOT prematurely unlock saham_koperasi (requires Kedai Lv.3)
-      const coopBizAfterPatungan = getUserBusinesses("test_u_coop").find(
-        (b) => b.biz_type === "saham_koperasi",
-      );
+      const coopBizAfterPatungan = getUserBusinesses("test_u_coop").find((b) => b.biz_type === "saham_koperasi");
       expect(coopBizAfterPatungan?.level).toBe(0);
 
       // Verify rescue is rejected without deducting cash when nobody is seized
@@ -344,13 +327,7 @@ describe("KARSA Bot — Unit & Integration Test Suite", () => {
       takeShortcutGambleOrPinjol("test_u_victim", "KorbanSegel", "slot", TEST_GUILD_ID);
       expect(getOrCreateUser("test_u_victim", "KorbanSegel").is_seized).toBe(1);
 
-      const rescueRes = investOrRescueCoop(
-        "test_u_coop",
-        "WargaKoperasi",
-        "rescue",
-        TEST_GUILD_ID,
-        "test_u_victim",
-      );
+      const rescueRes = investOrRescueCoop("test_u_coop", "WargaKoperasi", "rescue", TEST_GUILD_ID, "test_u_victim");
       expect(rescueRes.ok).toBe(true);
       expect(rescueRes.rescuedUsername).toBe("KorbanSegel");
       expect(rescueRes.user.gems).toBe(2);
