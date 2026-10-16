@@ -300,3 +300,12 @@ bun run src/index.ts --reset-db
 # Build & run inside Docker (recommended for production / VPS)
 ./docker-sync.sh up
 ```
+
+---
+
+## 7. Release History & Patch Notes (`v1.2.0`)
+
+See **[CHANGELOG.md](./CHANGELOG.md)** for full bilingual patch notes (Bahasa Indonesia & English):
+- **`v1.2.0` (Latest)**: 20-Persona Simulation Audit, Multiplayer S.O.S. Stall Bailout (`🛟 Minta Tebus Warga`), Live Co-op Contributors Tracking (`contributors_json`), Server Market Level Buff (`+5%` to `+20%` yield across `PASAR MALAM • LV.1–5`), Dual-Currency Rp/Gem `/shop`, Public Card Ownership Guard, and V3.2 Pixel Typography Precision (`20 test suites / 313 assertions`).
+- **`v1.1.0`**: State-Driven Discord Action Rows, Single-Scope Guild Slash Command Registration, Dynamic `<t:UNIX:R>` Timestamps, and 6 Hourly Market Events.
+- **`v1.0.0`**: Initial Procedural 16-Bit Pixel-Art Engine (`384×216` → `1152×648`), SQLite WAL ACID Progression Gates, and Portable Docker Deployment.
