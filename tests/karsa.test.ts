@@ -292,7 +292,7 @@ describe("KARSA Bot — Unit & Integration Test Suite", () => {
       );
 
       expect(shortcutRes.user.is_seized).toBe(1);
-      expect(shortcutRes.user.pinjol_debt).toBeGreaterThan(20_000_000);
+      expect(shortcutRes.user.pinjol_debt).toBeGreaterThanOrEqual(2_000_000);
       // Emergency fund must remain 100% untouched by seizure!
       expect(shortcutRes.user.emergency_fund).toBe(12_000_000);
 

@@ -108,7 +108,7 @@ export function buildStateAwarePortfolioRows(user: UserRow): ActionRowBuilder<Bu
   const inDebt = user.is_seized === 1 || user.pinjol_debt > 0;
   const dailyReady = !user.last_daily_at || now >= user.last_daily_at + DAILY_COOLDOWN_MS;
   const coopUnlocked = user.level >= 2;
-  const hasLiquid = user.balance + user.emergency_fund > 0;
+  const hasLiquid = user.balance > 0;
 
   if (inDebt) {
     const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -264,11 +264,12 @@ function buildPortfolioEmbed(
   const { event, nextChangeUnixSec } = getCurrentMarketEvent();
   const rankInfo = getRankForLevel(user.level);
 
+  const isSeized = user.is_seized === 1 || user.pinjol_debt > 0;
   const workTimer = buildCooldownTag(user.last_work_at, WORK_COOLDOWN_MS, "✅ Siap");
-  const omzetTimer = buildCooldownTag(user.last_passive_at, PASSIVE_COOLDOWN_MS, "✅ Siap");
+  const omzetTimer = isSeized ? "🔒 Disegel" : buildCooldownTag(user.last_passive_at, PASSIVE_COOLDOWN_MS, "✅ Siap");
   const dailyTimer = buildCooldownTag(user.last_daily_at, DAILY_COOLDOWN_MS, "✅ Siap");
 
-  const embedColor = user.is_seized === 1 ? 0xef4444 : user.karma >= 80 ? 0xf59e0b : 0x10b981;
+  const embedColor = isSeized ? 0xef4444 : user.karma >= 80 ? 0xf59e0b : 0x10b981;
 
   return new EmbedBuilder()
     .setColor(embedColor)

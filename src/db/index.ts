@@ -181,7 +181,7 @@ export function hasUserAccount(userId: string): boolean {
 
 export function computeProgressionQuest(user: UserRow, businesses: UserBusinessRow[]): string {
   if (user.is_seized === 1 || user.pinjol_debt > 0) {
-    return "Bayar segel di tombol Bayar Segel / Talangan";
+    return "Seduh kopi lalu klik Bayar Segel di bawah";
   }
   const kedai = businesses.find((b) => b.biz_type === "kedai_kopi");
   const brankas = businesses.find((b) => b.biz_type === "brankas_darurat");
@@ -612,40 +612,40 @@ export function takeShortcutGambleOrPinjol(
 
   const tx = sqlite.transaction(() => {
     if (mode === "pinjol") {
-      const loanPrincipal = 15_000_000;
-      const illegalFeeAndInterest = 28_500_000;
+      const loanPrincipal = 1_500_000;
+      const illegalFeeAndInterest = 1_500_000;
       newDebtAdded = loanPrincipal + illegalFeeAndInterest;
-      cashLost = Math.max(250_000, Math.min(user.balance, 18_000_000));
+      cashLost = Math.min(user.balance, 1_000_000);
       assetSeizedName = "Mesin Kopi Kedai";
-      assetSeizedValue = 18_000_000;
+      assetSeizedValue = 1_500_000;
       narrative =
         "Dana talangan kilat jatuh tempo! Bunga berbunga 8%/hari menguras laci kas dan penagih menyegel mesin kopi warungmu.";
     } else {
-      cashLost = Math.max(250_000, Math.round(user.balance * 0.65));
-      newDebtAdded = 21_500_000;
+      cashLost = Math.min(user.balance, Math.max(250_000, Math.round(user.balance * 0.65)));
+      newDebtAdded = 2_000_000;
       assetSeizedName = "Gerobak & Stok Biji";
-      assetSeizedValue = cashLost;
+      assetSeizedValue = Math.max(500_000, cashLost);
       narrative =
         "Modal belanja bahan baku habis di meja putaran malam! Warung gagal buka pagi ini dan gerobak disita penagih.";
     }
 
-    const updatedBalance = Math.max(100_000, user.balance - cashLost);
-    const updatedKarma = Math.max(10, user.karma - 35);
+    const updatedBalance = Math.max(0, user.balance - cashLost);
+    const updatedKarma = Math.max(10, user.karma - 25);
     const updatedDebt = user.pinjol_debt + newDebtAdded;
-    const isSeized = updatedDebt >= 20_000_000 ? 1 : 0;
+    const isSeized = updatedDebt >= 2_000_000 ? 1 : 0;
 
     // Degrade Kedai Kopi by 1 level (min 1) on seizure, while emergency_fund remains 100% untouched!
     if (isSeized === 1) {
       sqlite
         .query(
-          "UPDATE user_businesses SET level = MAX(1, level - 1), value = MAX(500000, value - 500000) WHERE user_id = ? AND biz_type = 'kedai_kopi'"
+          "UPDATE user_businesses SET level = MAX(1, level - 1), value = MAX(1500000, value - 500000) WHERE user_id = ? AND biz_type = 'kedai_kopi'"
         )
         .run(userId);
     }
 
     sqlite
       .query(
-        "UPDATE users SET balance = ?, karma = ?, pinjol_debt = ?, pinjol_strikes = pinjol_strikes + 1, is_seized = ?, badge = 'LAPAK DISEGEL', active_quest = 'Bayar segel di tombol Bayar Segel / Talangan' WHERE id = ?"
+        "UPDATE users SET balance = ?, karma = ?, pinjol_debt = ?, pinjol_strikes = pinjol_strikes + 1, is_seized = ?, badge = 'LAPAK DISEGEL', active_quest = 'Seduh kopi lalu klik Bayar Segel di bawah' WHERE id = ?"
       )
       .run(updatedBalance, updatedKarma, updatedDebt, isSeized, userId);
 
@@ -683,22 +683,22 @@ export function repayPinjolDebt(userId: string, username: string, customAmount?:
     };
   }
 
-  const totalLiquid = user.balance + user.emergency_fund;
+  const totalLiquid = user.balance;
   if (totalLiquid <= 0) {
     return {
       ok: false,
       paidRp: 0,
       remainingDebt: user.pinjol_debt,
       sealLifted: false,
-      message: "⚠️ **Kas & Brankas Kosong!** Jalankan `/work` atau `/daily` terlebih dahulu untuk mengumpulkan uang cicilan.",
+      message: "⚠️ **Laci Kas Kosong!** Klik **☕ Seduh Cari Uang** atau **☀️ Uang Harian** terlebih dahulu untuk mengumpulkan uang cicilan (Tabungan Emas tetap aman & tidak ikut terpakai).",
       user,
     };
   }
 
   const targetPay = customAmount ? Math.min(customAmount, user.pinjol_debt) : user.pinjol_debt;
   const actualPay = Math.min(totalLiquid, targetPay);
-  const fromCash = Math.min(user.balance, actualPay);
-  const fromEmergency = Math.max(0, actualPay - fromCash);
+  const fromCash = actualPay;
+  const fromEmergency = 0;
   const newDebt = Math.max(0, user.pinjol_debt - actualPay);
   const sealLifted = newDebt === 0;
 

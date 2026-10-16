@@ -143,10 +143,15 @@ export function renderPortfolioV3(input: PortfolioV3Input): Buffer {
     }
   }
 
-  const leftStatus = user.pinjol_debt > 0 ? "ADA TUNGGAKAN" : "AMAN";
-  const rightStatus = user.karma >= 80 ? "SEWA -15%" : "SEWA NORMAL";
-  drawPixelText(ctx, leftStatus, 18, 165, user.pinjol_debt > 0 ? T.redHi : T.greenHi, T.ink, 1);
-  drawPixelTextRight(ctx, rightStatus, 142, 165, T.amberHi, T.ink, 1);
+  const hasDebt = user.pinjol_debt > 0 || user.is_seized === 1;
+  const leftStatus = hasDebt ? "TUNGGAKAN" : "AMAN";
+  const rightStatus = hasDebt
+    ? fmtRp(user.pinjol_debt)
+    : user.karma >= 80
+      ? "SEWA -15%"
+      : "SEWA NORMAL";
+  drawPixelText(ctx, leftStatus, 18, 165, hasDebt ? T.redHi : T.greenHi, T.ink, 1);
+  drawPixelTextRight(ctx, rightStatus, 142, 165, hasDebt ? T.amberHi : T.amberHi, T.ink, 1);
 
   // 4. Right Column: Assets & Savings (x=154, y=40, w=218, h=138) — exact 6px gap from Left Column
   drawBevelPanel(ctx, 154, 40, 218, 138, T, { pad: 6 });
@@ -203,14 +208,17 @@ export function renderPortfolioV3(input: PortfolioV3Input): Buffer {
       drawPixelTextRight(ctx, "TERKUNCI", 360, ry + 19, T.muted, null, 1);
     } else {
       const title = (b.name || cat?.name || "Kedai Kopi Karsa").toUpperCase().slice(0, 18);
-      const sub = (cat ? `LV.${b.level} • ${cat.subtitle}` : `LV.${b.level} • 3 peracik`).toUpperCase().slice(0, 20);
+      const sub = (cat ? `LV.${b.level} • ${cat.subtitle}` : `LV.${b.level} • Gerobak`).toUpperCase().slice(0, 18);
       const valStr = fmtRp(b.value);
-      const yldStr = (cat ? cat.yieldLabel(b.level, b.daily_yield) : "+12% BAGI").toUpperCase();
+      const isBizSealed = (user.is_seized === 1 || user.pinjol_debt > 0) && b.biz_type !== "brankas_darurat";
+      const yldStr = isBizSealed
+        ? "DISEGEL"
+        : (cat ? cat.yieldLabel(b.level, b.daily_yield) : "+250 RB/HR").toUpperCase();
 
       drawPixelText(ctx, title, 195, ry + 7, T.crema, T.ink, 1);
       drawPixelText(ctx, sub, 195, ry + 19, T.muted, null, 1);
       drawPixelTextRight(ctx, valStr, 360, ry + 7, T.amberHi, T.ink, 1);
-      drawPixelTextRight(ctx, yldStr, 360, ry + 19, T.greenHi, null, 1);
+      drawPixelTextRight(ctx, yldStr, 360, ry + 19, isBizSealed ? T.redHi : T.greenHi, null, 1);
     }
   });
 
