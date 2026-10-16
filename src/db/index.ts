@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { mkdirSync, statSync, statfsSync } from "node:fs";
 import os from "node:os";
 import { dirname, resolve } from "node:path";
-import { BUSINESS_CATALOG, WORK_DILEMMAS, getCurrentMarketEvent, getRankForLevel } from "../game/mechanics.ts";
+import { BUSINESS_CATALOG, WORK_DILEMMAS, getCurrentMarketEvent, getPrestigeTipMultiplier, getRankForLevel } from "../game/mechanics.ts";
 import { SKIN_PALETTES, type SkinId } from "../renderer/sprites.ts";
 
 const isTestEnv =
@@ -383,7 +383,8 @@ export function workShift(
     if (choice === "ethical") {
       const c = dilemma.ethicalChoice;
       const karmaBonus = user.karma >= 80 ? Math.round(c.rewardRp * 0.15) : 0;
-      deltaRp = Math.round((c.rewardRp + karmaBonus) * marketEvent.workMultiplier);
+      const prestigeMult = getPrestigeTipMultiplier(user.level);
+      deltaRp = Math.round((c.rewardRp + karmaBonus) * marketEvent.workMultiplier * prestigeMult);
       karmaDelta = c.karmaDelta;
       xpDelta = c.xpDelta;
       message = `${c.outcomeText}${karmaBonus > 0 ? ` (+Bonus Pelanggan Setia Rp${(karmaBonus / 1000).toLocaleString("id-ID")}Rb)` : ""} ${marketEvent.title}`;
@@ -559,15 +560,15 @@ export function buyOrUpgradeBusiness(
 export function claimPassiveIncome(
   userId: string,
   username: string,
-  opts?: { enforceCooldown?: boolean }
+  opts?: { enforceCooldown?: boolean; guildId?: string }
 ) {
   const user = getOrCreateUser(userId, username);
   const now = Date.now();
 
-  if (user.is_seized === 1) {
+  if (user.is_seized === 1 || user.pinjol_debt > 0) {
     return {
       ok: false,
-      reason: "🚨 **Lapak Sedang Disegel!** Omzet usaha tertahan sampai tunggakan talangan dilunasi di `/jalan-pintas`.",
+      reason: "🚨 **Lapak Sedang Disegel / Memiliki Tunggakan!** Omzet usaha tertahan sampai tunggakan dilunasi.",
       gross: 0,
       net: 0,
       taxSaved: false,
@@ -602,7 +603,7 @@ export function claimPassiveIncome(
   }
 
   const taxRate = user.karma >= 80 ? 0.05 : 0.2;
-  const coop = getOrCreateServerCoop("global_kota_mandiri");
+  const coop = getOrCreateServerCoop(opts?.guildId || "global_kota_mandiri");
   const marketLvlBonus = 1 + Math.max(0, coop.eco_level - 1) * 0.05;
   const net = Math.round(gross * marketEvent.passiveMultiplier * marketLvlBonus * (1 - taxRate));
 
@@ -819,6 +820,43 @@ export function investOrRescueCoop(
     };
   }
 
+  // Pre-locate target indebted player for rescue before deducting any cash!
+  let targetRow: UserRow | null = null;
+  if (action === "rescue") {
+    if (targetUserId) {
+      targetRow = sqlite
+        .query("SELECT * FROM users WHERE id = ? AND (is_seized = 1 OR pinjol_debt > 0)")
+        .get(targetUserId) as UserRow | null;
+      if (!targetRow) {
+        return {
+          ok: false,
+          amount: 0,
+          rescuedUsername: null as string | null,
+          message: "✅ **Lapak warga tersebut sudah bebas segel / lunas!** Uangmu tidak dipotong.",
+          user,
+          coop,
+        };
+      }
+    } else {
+      targetRow = sqlite
+        .query("SELECT * FROM users WHERE (is_seized = 1 OR pinjol_debt > 0) AND id != ? ORDER BY pinjol_debt DESC LIMIT 1")
+        .get(userId) as UserRow | null;
+      if (!targetRow && (user.is_seized === 1 || user.pinjol_debt > 0)) {
+        targetRow = user;
+      }
+      if (!targetRow) {
+        return {
+          ok: false,
+          amount: 0,
+          rescuedUsername: null as string | null,
+          message: "✅ **Seluruh Lapak Warga Sedang Aman!** Saat ini tidak ada pedagang yang disegel di pasar.",
+          user,
+          coop,
+        };
+      }
+    }
+  }
+
   let rescuedUsername: string | null = null;
 
   const tx = sqlite.transaction(() => {
@@ -839,39 +877,29 @@ export function investOrRescueCoop(
         });
       }
 
+      const newBal = user.balance - amount;
+      const newKarma = Math.min(100, user.karma + 8);
+      const bizzes = getUserBusinesses(userId);
+      const nextQuest = computeProgressionQuest({ ...user, balance: newBal, karma: newKarma }, bizzes);
+
       sqlite
         .query(
-          "UPDATE users SET balance = balance - ?, coop_shares = coop_shares + ?, karma = MIN(100, karma + 8) WHERE id = ?"
+          "UPDATE users SET balance = ?, coop_shares = coop_shares + ?, karma = ?, active_quest = ? WHERE id = ?"
         )
-        .run(amount, amount, userId);
+        .run(newBal, amount, newKarma, nextQuest, userId);
       sqlite
         .query(
           "UPDATE server_coop SET pool_balance = pool_balance + ?, eco_level = MIN(5, 1 + CAST((pool_balance + ?) / 3000000 AS INTEGER)), eco_health = MIN(100, eco_health + 6), contributors_json = ? WHERE guild_id = ?"
         )
         .run(amount, amount, JSON.stringify(contributors), guildId);
+      // Only boost saham_koperasi if already unlocked (level >= 1); do NOT bypass Kedai Lv.3 prerequisite gate!
       sqlite
         .query(
-          "UPDATE user_businesses SET level = MAX(1, level), value = value + ?, daily_yield = daily_yield + 250000 WHERE user_id = ? AND biz_type = 'saham_koperasi'"
+          "UPDATE user_businesses SET value = value + ?, daily_yield = daily_yield + 250000 WHERE user_id = ? AND biz_type = 'saham_koperasi' AND level >= 1"
         )
         .run(amount, userId);
       recordTransaction(userId, "COOP_INVEST", -amount, "Iuran Koperasi Warga");
     } else {
-      // Find target indebted player to rescue (either explicit targetUserId, another indebted player in DB, or self if indebted)
-      let targetRow: UserRow | null = null;
-      if (targetUserId) {
-        targetRow = sqlite
-          .query("SELECT * FROM users WHERE id = ? AND (is_seized = 1 OR pinjol_debt > 0)")
-          .get(targetUserId) as UserRow | null;
-      }
-      if (!targetRow) {
-        targetRow = sqlite
-          .query("SELECT * FROM users WHERE (is_seized = 1 OR pinjol_debt > 0) AND id != ? ORDER BY pinjol_debt DESC LIMIT 1")
-          .get(userId) as UserRow | null;
-      }
-      if (!targetRow && (user.is_seized === 1 || user.pinjol_debt > 0)) {
-        targetRow = user;
-      }
-
       if (targetRow) {
         rescuedUsername = targetRow.username;
         const targetBizzes = getUserBusinesses(targetRow.id);

@@ -190,15 +190,22 @@ export function buildStateAwarePortfolioRows(user: UserRow): ActionRowBuilder<Bu
  * Panel Usaha (`/bisnis`) — tiap tombol otomatis nonaktif bila syarat/kas belum cukup,
  * dan labelnya sudah memuat harga persis supaya pemain tidak perlu menghitung.
  */
-function buildBusinessPanelPayload(user: UserRow, businesses: UserBusinessRow[], headline?: string) {
+function buildBusinessPanelPayload(
+  user: UserRow,
+  businesses: UserBusinessRow[],
+  headline?: string,
+  guildId = "global_kota_mandiri"
+) {
   const now = Date.now();
   const isSeized = user.is_seized === 1 || user.pinjol_debt > 0;
   const kedaiLvl = businesses.find((b) => b.biz_type === "kedai_kopi")?.level ?? 1;
 
   const gross = businesses.reduce((a, b) => a + (b.level > 0 ? b.daily_yield : 0), 0);
   const { event } = getCurrentMarketEvent();
+  const coop = getOrCreateServerCoop(guildId);
+  const marketLvlBonus = 1 + Math.max(0, coop.eco_level - 1) * 0.05;
   const taxRate = user.karma >= 80 ? 0.05 : 0.2;
-  const netPreview = Math.round(gross * event.passiveMultiplier * (1 - taxRate));
+  const netPreview = Math.round(gross * event.passiveMultiplier * marketLvlBonus * (1 - taxRate));
   const claimReady =
     !isSeized && gross > 0 && (!user.last_passive_at || now >= user.last_passive_at + PASSIVE_COOLDOWN_MS);
   const claimLabel = claimReady
@@ -488,10 +495,11 @@ export async function handleChatInputCommand(interaction: ChatInputCommandIntera
   }
 
   if (commandName === "bisnis") {
+    const guildId = interaction.guildId || "global_kota_mandiri";
     const user = getOrCreateUser(uid, uname);
     const businesses = getUserBusinesses(uid);
     await interaction.reply({
-      ...buildBusinessPanelPayload(user, businesses),
+      ...buildBusinessPanelPayload(user, businesses, undefined, guildId),
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -500,7 +508,7 @@ export async function handleChatInputCommand(interaction: ChatInputCommandIntera
   if (commandName === "jalan-pintas") {
     const user = getOrCreateUser(uid, uname);
     const hasDebt = user.pinjol_debt > 0;
-    const hasLiquid = user.balance + user.emergency_fund > 0;
+    const hasLiquid = user.balance > 0;
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId(CUSTOM_IDS.BTN_PINJOL_AMBIL)
@@ -529,8 +537,8 @@ export async function handleChatInputCommand(interaction: ChatInputCommandIntera
     }
     await interaction.reply({
       content: hasDebt
-        ? `🚨 **Tunggakan Segel: ${formatRpShort(user.pinjol_debt)}** • Kas + Emas: **${formatRpShort(user.balance + user.emergency_fund)}**`
-        : `⚡ **Talangan Kilat & Meja Belakang** — tunggakan di atas **Rp 20Jt** otomatis menyegel lapak.`,
+        ? `🚨 **Tunggakan Segel: ${formatRpShort(user.pinjol_debt)}** • Laci Kas: **${formatRpShort(user.balance)}** *(Tabungan Emas ${formatRpShort(user.emergency_fund)} aman)*`
+        : `⚡ **Talangan Kilat & Meja Belakang** — tunggakan mencapai **Rp 2Jt** otomatis menyegel lapak.`,
       components: [row],
       flags: MessageFlags.Ephemeral,
     });
@@ -1024,15 +1032,22 @@ export async function handleButtonInteraction(interaction: ButtonInteraction): P
   if (id === CUSTOM_IDS.BTN_BISNIS) {
     const user = getOrCreateUser(uid, uname);
     const businesses = getUserBusinesses(uid);
-    await interaction.reply({
-      ...buildBusinessPanelPayload(user, businesses),
-      flags: MessageFlags.Ephemeral,
-    });
+    if (interaction.message.flags.has(MessageFlags.Ephemeral)) {
+      await interaction.deferUpdate();
+      await interaction.editReply(buildBusinessPanelPayload(user, businesses, undefined, guildId));
+    } else {
+      await interaction.deferUpdate();
+      await interaction.editReply({
+        content: "",
+        files: [],
+        ...buildBusinessPanelPayload(user, businesses, undefined, guildId),
+      });
+    }
     return;
   }
 
   if (id === CUSTOM_IDS.BTN_BISNIS_CLAIM) {
-    const res = claimPassiveIncome(uid, uname, { enforceCooldown: true });
+    const res = claimPassiveIncome(uid, uname, { enforceCooldown: true, guildId });
     if (!res.ok) {
       await interaction.reply({ content: res.reason!, flags: MessageFlags.Ephemeral });
       return;
@@ -1041,7 +1056,7 @@ export async function handleButtonInteraction(interaction: ButtonInteraction): P
     const headline = `💰 **Omzet Cair +${formatRpShort(res.net)}!** ${res.taxSaved ? "*(Sewa 5%)*" : "*(Sewa 20%)*"}`;
     if (interaction.message.flags.has(MessageFlags.Ephemeral)) {
       await interaction.deferUpdate();
-      await interaction.editReply(buildBusinessPanelPayload(res.user, businesses, headline));
+      await interaction.editReply(buildBusinessPanelPayload(res.user, businesses, headline, guildId));
     } else {
       await interaction.deferUpdate();
       await sendPortfolioView(interaction, uid, uname, headline);
@@ -1069,7 +1084,7 @@ export async function handleButtonInteraction(interaction: ButtonInteraction): P
     const headline = `🏪 **Naik ke Lv.${res.nextLevel}!** (+${formatRpShort(res.yieldBoost || 0)}/hr)`;
     if (interaction.message.flags.has(MessageFlags.Ephemeral)) {
       await interaction.deferUpdate();
-      await interaction.editReply(buildBusinessPanelPayload(res.user, businesses, headline));
+      await interaction.editReply(buildBusinessPanelPayload(res.user, businesses, headline, guildId));
     } else {
       await interaction.deferUpdate();
       await sendPortfolioView(interaction, uid, uname, headline);
@@ -1102,7 +1117,7 @@ export async function handleButtonInteraction(interaction: ButtonInteraction): P
         .setStyle(ButtonStyle.Danger)
     );
     await interaction.reply({
-      content: `⚡ **Fasilitas Belakang Pasar** — tunggakan di atas **Rp 20Jt** menyegel lapakmu. Kas + Emas: **${formatRpShort(user.balance + user.emergency_fund)}**`,
+      content: `⚡ **Fasilitas Belakang Pasar** — tunggakan mencapai **Rp 2Jt** menyegel lapakmu. Laci Kas: **${formatRpShort(user.balance)}** *(Tabungan Emas ${formatRpShort(user.emergency_fund)} kebal sita)*`,
       components: [row],
       flags: MessageFlags.Ephemeral,
     });
@@ -1129,7 +1144,7 @@ export async function handleButtonInteraction(interaction: ButtonInteraction): P
           `Kasmu sekarang: **${formatRpShort(res.user.balance)}**`
       )
       .setImage("attachment://surat-segel-lapak.png");
-    const canPay = res.user.balance + res.user.emergency_fund > 0;
+    const canPay = res.user.balance > 0;
     const rescueRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder().setCustomId(CUSTOM_IDS.BTN_WORK).setLabel("☕ Seduh Cari Uang").setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
@@ -1218,6 +1233,21 @@ export async function handleButtonInteraction(interaction: ButtonInteraction): P
     const res = investOrRescueCoop(uid, uname, act, guildId, targetUserId);
     if (!res.ok) {
       await interaction.reply({ content: `${res.message}`, flags: MessageFlags.Ephemeral });
+      return;
+    }
+    if (act === "rescue" && targetUserId) {
+      await interaction.deferUpdate();
+      const doneRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId("sos_done")
+          .setLabel(`✅ Ditebus oleh ${uname}`)
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(true)
+      );
+      await interaction.editReply({
+        content: `🎉 **SEGEL LAPAK BERHASIL DITEBUS!** Lapak milik **@${res.rescuedUsername || "Warga"}** telah dibebaskan oleh **@${uname}** (+25 Nama Baik & +2 💎)!`,
+        components: [doneRow],
+      });
       return;
     }
     await interaction.deferUpdate();

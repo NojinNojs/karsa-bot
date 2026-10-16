@@ -428,16 +428,30 @@ export function renderCoopV3(coop: ServerCoopRow): Buffer {
     1
   );
 
-  let parsedContributors: Record<string, number> = {};
-  try {
-    const rawJson = (coop as ServerCoopRow & { contributors_json?: string }).contributors_json;
-    parsedContributors = JSON.parse(rawJson || "{}") as Record<string, number>;
-  } catch {
-    parsedContributors = {};
+  const rawContribs = coop.contributors || [];
+  let sortedContributors: Array<{ name: string; role: string; totalRp: number; warungSaved: number }> = [];
+  if (Array.isArray(rawContribs) && rawContribs.length > 0) {
+    sortedContributors = [...rawContribs]
+      .filter((c) => c && typeof c.totalRp === "number" && c.totalRp > 0)
+      .sort((a, b) => b.totalRp - a.totalRp);
+  } else {
+    try {
+      const rawJson = (coop as ServerCoopRow & { contributors_json?: string }).contributors_json;
+      const parsed = JSON.parse(rawJson || "[]");
+      if (Array.isArray(parsed)) {
+        sortedContributors = parsed
+          .filter((c) => c && typeof c.totalRp === "number" && c.totalRp > 0)
+          .sort((a, b) => b.totalRp - a.totalRp);
+      } else if (parsed && typeof parsed === "object") {
+        sortedContributors = Object.entries(parsed as Record<string, number>)
+          .filter(([, amount]) => typeof amount === "number" && amount > 0)
+          .sort((a, b) => b[1] - a[1])
+          .map(([name, totalRp]) => ({ name, role: "MITRA AKTIF", totalRp, warungSaved: 0 }));
+      }
+    } catch {
+      sortedContributors = [];
+    }
   }
-  const sortedContributors = Object.entries(parsedContributors)
-    .filter(([, amount]) => typeof amount === "number" && amount > 0)
-    .sort((a, b) => b[1] - a[1]);
 
   // Left Column
   drawBevelPanel(ctx, 12, 40, 136, 48, T, { pad: 6 });
@@ -519,12 +533,13 @@ export function renderCoopV3(coop: ServerCoopRow): Buffer {
       drawPixelTextRight(ctx, "RP 0", 360, ry + 7, T.muted, T.ink, 1);
       drawPixelTextRight(ctx, "KOSONG", 360, ry + 19, T.muted, null, 1);
     } else {
-      const [uid, amount] = contrib;
-      const label = uid.toUpperCase().slice(0, 12);
+      const label = (contrib.name || "WARGA").toUpperCase().slice(0, 12);
+      const roleStr = (contrib.role || "MITRA AKTIF").toUpperCase().slice(0, 16);
+      const rightTag = contrib.warungSaved > 0 ? `${contrib.warungSaved} TEBUS` : idx === 0 ? "PELOPOR" : "AKTIF";
       drawPixelText(ctx, `${idx + 1}. ${label}`, 195, ry + 7, T.crema, T.ink, 1);
-      drawPixelText(ctx, "MITRA KOPERASI", 195, ry + 19, T.muted, null, 1);
-      drawPixelTextRight(ctx, fmtRp(amount), 360, ry + 7, T.amberHi, T.ink, 1);
-      drawPixelTextRight(ctx, idx === 0 ? "PELOPOR" : "AKTIF", 360, ry + 19, T.greenHi, null, 1);
+      drawPixelText(ctx, roleStr, 195, ry + 19, T.muted, null, 1);
+      drawPixelTextRight(ctx, fmtRp(contrib.totalRp), 360, ry + 7, T.amberHi, T.ink, 1);
+      drawPixelTextRight(ctx, rightTag, 360, ry + 19, T.greenHi, null, 1);
     }
   }
 

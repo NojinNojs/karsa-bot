@@ -52,9 +52,9 @@ export const GUIDE_SECTIONS: Record<GuideCategoryId, GuideSection> = {
     color: 0x3b82f6,
     lines: [
       "🔓 **Syarat Koperasi** — Terbuka setelah kamu mencapai **Level 2** dan bebas tunggakan.",
-      "🤝 **Patungan Kas (Rp 5Jt)** — Nambah tabungan koperasi server & naikin Nama Baik (**+8**).",
-      "🛟 **Tebus Rekan (Rp 10Jt)** — Bebasin lapak warga yang disegel, dapat **+20 Nama Baik** & **+1 💎 Gem**.",
-      "🎨 **Tema Kartu (`/shop`)** — Coba *live preview* warna kartu usaha sebelum membeli.",
+      "🤝 **Patungan Kas (Rp 1,5Jt)** — Nambah kas koperasi server, naikin Level Pasar (**+5% Omzet/Lv**), & **+8 Nama Baik**.",
+      "🛟 **Tebus Warga (Rp 1,5Jt)** — Bebasin segel lapak rekan satu server, dapat **+25 Nama Baik** & **+2 💎 Permata**.",
+      "🎨 **Tema Kartu (`/shop`)** — Coba *live preview* dan beli tema kartu pakai **Kas (Rp)** atau **Permata (💎)**.",
     ],
   },
   bahaya: {
@@ -64,10 +64,10 @@ export const GUIDE_SECTIONS: Record<GuideCategoryId, GuideSection> = {
     title: "⚡ Panduan Singkat — Risiko Talangan & Segel",
     color: 0xef4444,
     lines: [
-      "💸 **Talangan Kilat (`/jalan-pintas`)** — Cair instan tapi bunganya **8% per hari**.",
-      "🚨 **Surat Segel Lapak** — Kalau tunggakan lewat **Rp 20Jt**, lapak disegel (tidak bisa *upgrade* & klaim omzet).",
-      "🛡️ **Brankas Emas Tetap Aman** — Penagih hanya menyita kas laci, saldo Tabungan Emas tidak disentuh.",
-      "🔓 **Cara Buka Segel** — Tetap kerja di **☕ Seduh**, lalu klik **💸 Bayar / Cicil Segel** sampai lunas!",
+      "💸 **Talangan Kilat (`/jalan-pintas`)** — Cair instan tapi berbunga tinggi & rawan sita alat usaha.",
+      "🚨 **Surat Segel Lapak** — Kalau tunggakan mencapai **Rp 2Jt**, lapak disegel (tidak bisa *upgrade* & klaim omzet).",
+      "🛡️ **Tabungan Emas Tetap Aman** — Penagih hanya menyita kas laci, saldo Tabungan Emas 100% kebal sita.",
+      "🔓 **Cara Buka Segel** — Kerja di **☕ Seduh Cari Uang** lalu klik **💸 Bayar Segel**, atau klik **🛟 Minta Tebus Warga**!",
     ],
   },
 };

@@ -152,6 +152,16 @@ export function getRankForLevel(level: number): PrestigeRank {
   return chosen;
 }
 
+export function getPrestigeTipMultiplier(level: number): number {
+  if (level >= 20) return 1.3;
+  if (level >= 16) return 1.25;
+  if (level >= 12) return 1.2;
+  if (level >= 8) return 1.15;
+  if (level >= 5) return 1.1;
+  if (level >= 3) return 1.05;
+  return 1.0;
+}
+
 export const WORK_DILEMMAS: WorkDilemma[] = [
   {
     id: "kopi_beans",

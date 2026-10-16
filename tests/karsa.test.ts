@@ -3,8 +3,11 @@ import {
   buyOrUpgradeBusiness,
   claimDailyBonus,
   claimPassiveIncome,
+  devClearAllCooldowns,
+  devModifyPlayer,
   equipOrBuySkin,
   formatCooldown,
+  getDeveloperTelemetry,
   getOrCreateServerCoop,
   getOrCreateUser,
   getTopLeaderboard,
@@ -21,6 +24,7 @@ import {
 import {
   renderAzabCard,
   renderCoopCard,
+  renderDevMonitorCard,
   renderLeaderboardCard,
   renderPortfolioCard,
 } from "../src/renderer/pixelCard.ts";
@@ -332,6 +336,15 @@ describe("KARSA Bot — Unit & Integration Test Suite", () => {
       expect(patunganRes.ok).toBe(true);
       expect(patunganRes.coop.pool_balance).toBe(coopBefore.pool_balance + 1_500_000);
       expect((patunganRes.coop.contributors || []).length).toBeGreaterThanOrEqual(1);
+      // Verify patungan at Level 2 does NOT prematurely unlock saham_koperasi (requires Kedai Lv.3)
+      const coopBizAfterPatungan = getUserBusinesses("test_u_coop").find((b) => b.biz_type === "saham_koperasi");
+      expect(coopBizAfterPatungan?.level).toBe(0);
+
+      // Verify rescue is rejected without deducting cash when nobody is seized
+      const balBeforeEmptyRescue = getOrCreateUser("test_u_coop", "WargaKoperasi").balance;
+      const noVictimRescue = investOrRescueCoop("test_u_coop", "WargaKoperasi", "rescue", TEST_GUILD_ID);
+      expect(noVictimRescue.ok).toBe(false);
+      expect(getOrCreateUser("test_u_coop", "WargaKoperasi").balance).toBe(balBeforeEmptyRescue);
 
       // Create an indebted fellow player to verify cross-player rescue!
       getOrCreateUser("test_u_victim", "KorbanSegel");
@@ -353,33 +366,51 @@ describe("KARSA Bot — Unit & Integration Test Suite", () => {
     });
   });
 
-  describe("6. PNG Magic Bytes (89 50 4E 47) & Buffer Size Verification for All 6 Renderers", () => {
-    test("all 6 pixel-art canvas renderers produce valid non-empty PNG buffers", () => {
+  describe("6. PNG Magic Bytes (89 50 4E 47) & Buffer Size Verification for All 7 Renderers + /dev Telemetry", () => {
+    test("all 7 pixel-art canvas renderers & /dev telemetry tools work cleanly", () => {
       const user = getOrCreateUser("test_u_render", "JuraganVisual");
       sqlite.query("UPDATE users SET balance = 50000000 WHERE id = ?").run("test_u_render");
       const businesses = getUserBusinesses("test_u_render");
       const coop = getOrCreateServerCoop(TEST_GUILD_ID);
       const leaders = getTopLeaderboard(5);
+      const tel = getDeveloperTelemetry(TEST_GUILD_ID);
+
+      expect(tel.cpuCores).toBeGreaterThanOrEqual(1);
+      expect(tel.ramPct).toBeGreaterThanOrEqual(1);
 
       assertValidPngBuffer(renderPortfolioCard({ user, businesses, coop }));
       assertValidPngBuffer(
         renderAzabCard({
           username: user.username,
           mode: "pinjol",
-          cashLost: 18_000_000,
-          totalDebt: 43_500_000,
+          cashLost: 1_000_000,
+          totalDebt: 3_000_000,
           assetSeizedName: "Mesin Kopi Kedai",
           karmaAfter: 55,
         })
       );
       assertValidPngBuffer(renderCoopCard(coop));
       assertValidPngBuffer(renderLeaderboardCard(leaders, coop));
+      assertValidPngBuffer(renderDevMonitorCard(tel, 38));
       assertValidPngBuffer(renderAvatarV3());
       assertValidPngBuffer(renderBannerV3());
 
-      const skinRes = equipOrBuySkin("test_u_render", "JuraganVisual", "cyberpunk_neon");
+      const devMod = devModifyPlayer({
+        targetQuery: "JuraganVisual",
+        callerId: "test_u_render",
+        callerName: "JuraganVisual",
+        cashInput: "+1000000",
+        statsInput: "level=4, gems=12, karma=90",
+      });
+      expect(devMod.ok).toBe(true);
+      expect(devMod.user.level).toBe(4);
+      expect(devMod.user.gems).toBe(12);
+      expect(devClearAllCooldowns("test_u_render")).toBe(1);
+
+      const skinRes = equipOrBuySkin("test_u_render", "JuraganVisual", "cyberpunk_neon", "gems");
       expect(skinRes.ok).toBe(true);
       expect(skinRes.user.skin_id).toBe("cyberpunk_neon");
+      expect(skinRes.user.gems).toBe(2);
     });
   });
 });
