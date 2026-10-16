@@ -1,3 +1,4 @@
+import type { LeaderboardEntry, ServerCoopRow } from "../db/index.ts";
 import {
   CANVAS_H,
   CANVAS_W,
@@ -12,26 +13,14 @@ import {
   R,
   WARM_KOPI_THEME,
 } from "./designSpec.ts";
-import {
-  drawPixelText,
-  drawPixelTextCentered,
-  drawPixelTextRight,
-} from "./pixelFont.ts";
+import { drawPixelText, drawPixelTextCentered, drawPixelTextRight } from "./pixelFont.ts";
 import { drawSpriteV3, type SpriteV3Name } from "./spritesV3.ts";
-import type { LeaderboardEntry, ServerCoopRow } from "../db/index.ts";
 
 export { fmtJt, fmtRp };
 
-const RANK_SPRITES: readonly SpriteV3Name[] = [
-  "barista_16",
-  "emas_batangan_16",
-  "gerobak_kopi_16",
-];
+const RANK_SPRITES: readonly SpriteV3Name[] = ["barista_16", "emas_batangan_16", "gerobak_kopi_16"];
 
-export function renderLeaderboardV3(
-  leaders: LeaderboardEntry[],
-  coop: ServerCoopRow
-): Buffer {
+export function renderLeaderboardV3(leaders: LeaderboardEntry[], coop: ServerCoopRow): Buffer {
   const T = WARM_KOPI_THEME;
   const { canvas, ctx } = createSurface(CANVAS_W, CANVAS_H);
 
@@ -57,17 +46,7 @@ export function renderLeaderboardV3(
     lo: T.ink,
     pad: 2,
   });
-  drawPixelTextCentered(
-    ctx,
-    `PASAR MALAM • LV.${coop.eco_level}`,
-    250,
-    15,
-    116,
-    16,
-    T.crema,
-    T.ink,
-    1
-  );
+  drawPixelTextCentered(ctx, `PASAR MALAM • LV.${coop.eco_level}`, 250, 15, 116, 16, T.crema, T.ink, 1);
 
   // 3. Left Column (x=12, w=136)
   // L1 (y=40, h=48): celengan_warga_16 in 28x28 inset slot, "KAS KOPERASI", formatted coop.pool_balance, and badge "GOTONG ROYONG".
@@ -82,36 +61,26 @@ export function renderLeaderboardV3(
     lo: T.ink,
     pad: 2,
   });
-  drawPixelTextCentered(
-    ctx,
-    "GOTONG ROYONG",
-    52,
-    67,
-    90,
-    15,
-    T.crema,
-    T.ink,
-    1
-  );
+  drawPixelTextCentered(ctx, "GOTONG ROYONG", 52, 67, 90, 15, T.crema, T.ink, 1);
 
   // L2 (y=94, h=36): "GEROBAK DITEBUS", gerobak_kopi_16 sprite + `${coop.rescued_count} WARUNG SELAMAT`.
   drawBevelPanel(ctx, 12, 94, 136, 36, T, { pad: 6 });
   drawPixelText(ctx, "GEROBAK DITEBUS", 18, 100, T.muted, T.ink, 1);
   drawSpriteV3(ctx, "gerobak_kopi_16", 18, 110, 1);
-  drawPixelText(
-    ctx,
-    `${coop.rescued_count} WARUNG SELAMAT`,
-    38,
-    114,
-    T.greenHi,
-    T.ink,
-    1
-  );
+  drawPixelText(ctx, `${coop.rescued_count} WARUNG SELAMAT`, 38, 114, T.greenHi, T.ink, 1);
 
   // L3 (y=136, h=42): "KONDISI PASAR", `${coop.eco_health}/100` right-aligned, 10-segment bar at x=18, y=152, w=122, h=10, and bottom labels "PASAR SEHAT" / "SEWA -15%".
   drawBevelPanel(ctx, 12, 136, 136, 42, T, { pad: 6 });
   drawPixelText(ctx, "KONDISI PASAR", 18, 142, T.muted, T.ink, 1);
-  drawPixelTextRight(ctx, `${coop.eco_health}/100`, 142, 142, coop.eco_health >= 80 ? T.greenHi : T.amberHi, T.ink, 1);
+  drawPixelTextRight(
+    ctx,
+    `${coop.eco_health}/100`,
+    142,
+    142,
+    coop.eco_health >= 80 ? T.greenHi : T.amberHi,
+    T.ink,
+    1,
+  );
   drawInsetSlot(ctx, 18, 152, 122, 10, T, { pad: 2 });
   const segs = Math.round(Math.max(0, Math.min(100, coop.eco_health)) / 10);
   for (let i = 0; i < 10; i++) {
@@ -149,9 +118,7 @@ export function renderLeaderboardV3(
     });
 
     drawInsetSlot(ctx, 165, ry + 5, 24, 24, T, { dither: true });
-    const sprite = isEmpty
-      ? "gerobak_kopi_16"
-      : (RANK_SPRITES[idx] ?? "gerobak_kopi_16");
+    const sprite = isEmpty ? "gerobak_kopi_16" : (RANK_SPRITES[idx] ?? "gerobak_kopi_16");
     drawSpriteV3(ctx, sprite, 169, ry + 9, 1);
 
     if (isEmpty) {
@@ -185,15 +152,7 @@ export function renderLeaderboardV3(
   // 5. Bottom Footer Bar (x=12, y=184, w=360, h=20)
   drawBevelPanel(ctx, 12, 184, 360, 20, T, { pad: 6 });
   drawPixelText(ctx, "TIPS:", 18, 191, T.amber, T.ink, 1);
-  drawPixelText(
-    ctx,
-    "JAGA NAMA BAIK MIN. 80 UNTUK DISKON SEWA 15%",
-    50,
-    191,
-    T.crema,
-    null,
-    1
-  );
+  drawPixelText(ctx, "JAGA NAMA BAIK MIN. 80 UNTUK DISKON SEWA 15%", 50, 191, T.crema, null, 1);
 
   return exportUpscaledPng(canvas, 3);
 }

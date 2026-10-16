@@ -1,3 +1,4 @@
+import type { DeveloperTelemetry } from "../db/index.ts";
 import {
   CANVAS_H,
   CANVAS_W,
@@ -11,13 +12,8 @@ import {
   fmtRp,
   R,
 } from "./designSpec.ts";
-import {
-  drawPixelText,
-  drawPixelTextCentered,
-  drawPixelTextRight,
-} from "./pixelFont.ts";
+import { drawPixelText, drawPixelTextCentered, drawPixelTextRight } from "./pixelFont.ts";
 import { drawSpriteV3 } from "./spritesV3.ts";
-import type { DeveloperTelemetry } from "../db/index.ts";
 
 export function renderDevMonitorV3(telemetry: DeveloperTelemetry, wsPingMs = 42): Buffer {
   const T = CYBER_KOPI_THEME;
@@ -52,7 +48,7 @@ export function renderDevMonitorV3(telemetry: DeveloperTelemetry, wsPingMs = 42)
     16,
     T.crema,
     T.ink,
-    1
+    1,
   );
 
   // 2. Left Column: Host Hardware Specs (x=12, y=40, w=136)
@@ -77,19 +73,35 @@ export function renderDevMonitorV3(telemetry: DeveloperTelemetry, wsPingMs = 42)
     15,
     T.crema,
     T.ink,
-    1
+    1,
   );
 
   // L2: Host Storage & SQLite Database (y=94, h=36)
   drawBevelPanel(ctx, 12, 94, 136, 36, T, { pad: 6 });
-  drawPixelText(ctx, `DISK ${telemetry.diskUsedGb}/${telemetry.diskTotalGb}GB (${telemetry.diskPct}%)`, 18, 100, T.muted, T.ink, 1);
+  drawPixelText(
+    ctx,
+    `DISK ${telemetry.diskUsedGb}/${telemetry.diskTotalGb}GB (${telemetry.diskPct}%)`,
+    18,
+    100,
+    T.muted,
+    T.ink,
+    1,
+  );
   drawPixelText(ctx, `${telemetry.totalUsers} WARGA`, 18, 113, T.crema, T.ink, 1);
   drawPixelTextRight(ctx, `DB ${telemetry.dbSizeKb}`, 142, 113, T.amberHi, T.ink, 1);
 
   // L3: Host RAM Gauge Used / Total GB (y=136, h=42)
   drawBevelPanel(ctx, 12, 136, 136, 42, T, { pad: 6 });
   drawPixelText(ctx, `RAM ${telemetry.ramUsedGb}/${telemetry.ramTotalGb}GB`, 18, 142, T.muted, T.ink, 1);
-  drawPixelTextRight(ctx, `${telemetry.ramPct}%`, 142, 142, telemetry.ramPct >= 85 ? T.redHi : T.greenHi, T.ink, 1);
+  drawPixelTextRight(
+    ctx,
+    `${telemetry.ramPct}%`,
+    142,
+    142,
+    telemetry.ramPct >= 85 ? T.redHi : T.greenHi,
+    T.ink,
+    1,
+  );
   drawInsetSlot(ctx, 18, 152, 122, 10, T, { pad: 2 });
   const segs = Math.round(Math.max(0, Math.min(100, telemetry.ramPct)) / 10);
   for (let i = 0; i < 10; i++) {
@@ -157,15 +169,7 @@ export function renderDevMonitorV3(telemetry: DeveloperTelemetry, wsPingMs = 42)
   // 4. Bottom Footer Bar (x=12, y=184, w=360, h=20)
   drawBevelPanel(ctx, 12, 184, 360, 20, T, { pad: 6 });
   drawPixelText(ctx, "STATUS:", 18, 191, T.amber, T.ink, 1);
-  drawPixelText(
-    ctx,
-    `DOCKER AKTIF • ${telemetry.marketTitleClean}`.slice(0, 44),
-    66,
-    191,
-    T.crema,
-    null,
-    1
-  );
+  drawPixelText(ctx, `DOCKER AKTIF • ${telemetry.marketTitleClean}`.slice(0, 44), 66, 191, T.crema, null, 1);
 
   return exportUpscaledPng(canvas);
 }

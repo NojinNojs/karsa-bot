@@ -306,21 +306,19 @@ export const SPRITES_V3: Record<SpriteV3Name, SpriteV3Def> = {
 export function assertSpritesV3Valid(): void {
   for (const [name, def] of Object.entries(SPRITES_V3)) {
     if (def.map.length !== def.height) {
-      throw new Error(
-        `[spritesV3] Sprite "${name}" expected ${def.height} rows, got ${def.map.length}`
-      );
+      throw new Error(`[spritesV3] Sprite "${name}" expected ${def.height} rows, got ${def.map.length}`);
     }
     def.map.forEach((row, rowIdx) => {
       if (row.length !== def.width) {
         throw new Error(
-          `[spritesV3] Sprite "${name}" row ${rowIdx} expected length ${def.width}, got ${row.length} ("${row}")`
+          `[spritesV3] Sprite "${name}" row ${rowIdx} expected length ${def.width}, got ${row.length} ("${row}")`,
         );
       }
       for (let colIdx = 0; colIdx < row.length; colIdx++) {
         const ch = row[colIdx]!;
         if (ch !== "." && !def.pal[ch]) {
           throw new Error(
-            `[spritesV3] Sprite "${name}" row ${rowIdx} col ${colIdx} has unmapped char "${ch}"`
+            `[spritesV3] Sprite "${name}" row ${rowIdx} col ${colIdx} has unmapped char "${ch}"`,
           );
         }
       }
@@ -339,7 +337,7 @@ export function drawSpriteV3(
   name: SpriteV3Name | string,
   x: number,
   y: number,
-  scale = 1
+  scale = 1,
 ): void {
   const sprite = SPRITES_V3[name as SpriteV3Name];
   if (!sprite) {

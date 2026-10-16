@@ -1,7 +1,7 @@
 {
   "name": "kota-mandiri-bot",
-  "version": "1.3.0",
-  "description": "Karsa — Bot RPG Ekonomi & Tycoon Nusantara untuk Discord dengan Kartu Pixel-Art Canvas, Usaha Lokal, dan Koperasi Komunitas.",
+  "version": "1.4.0",
+  "description": "Karsa \u2014 Bot RPG Ekonomi & Tycoon Nusantara untuk Discord dengan Kartu Pixel-Art Canvas, Usaha Lokal, dan Koperasi Komunitas.",
   "type": "module",
   "module": "src/index.ts",
   "private": true,
@@ -14,7 +14,9 @@
     "test:render": "bun run src/test-render.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:reset": "bun run src/index.ts --reset-db"
+    "db:reset": "bun run src/index.ts --reset-db",
+    "lint": "biome check src tests",
+    "format": "biome check --write src tests"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.80",
@@ -22,6 +24,7 @@
     "drizzle-orm": "^0.44.5"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
     "@types/bun": "^1.3.0",
     "@types/node": "^24.0.0",
     "drizzle-kit": "^0.31.5",

@@ -1,7 +1,4 @@
-import {
-  SlashCommandBuilder,
-  type RESTPostAPIChatInputApplicationCommandsJSONBody,
-} from "discord.js";
+import { type RESTPostAPIChatInputApplicationCommandsJSONBody, SlashCommandBuilder } from "discord.js";
 
 /**
  * Custom IDs untuk seluruh Button & StringSelectMenu di pasar malam KARSA.
@@ -74,87 +71,63 @@ export const CUSTOM_IDS = {
 
 export const startCommand = new SlashCommandBuilder()
   .setName("start")
-  .setDescription(
-    "🪪 Daftar lapak pertama dari nol: Lv.1 Perintis, Modal Kas Rp 500.000 & Kedai Kopi Lv.1."
-  );
+  .setDescription("🪪 Daftar lapak pertama dari nol: Lv.1 Perintis, Modal Kas Rp 500.000 & Kedai Kopi Lv.1.");
 
 export const helpCommand = new SlashCommandBuilder()
   .setName("help")
-  .setDescription(
-    "📖 Buku pedoman pedagang pasar malam: aturan kas, racikan kopi, koperasi & talangan."
-  );
+  .setDescription("📖 Buku pedoman pedagang pasar malam: aturan kas, racikan kopi, koperasi & talangan.");
 
 export const dailyCommand = new SlashCommandBuilder()
   .setName("daily")
-  .setDescription(
-    "☀️ Ambil uang belanja pasar tiap 20 jam + tambahan bonus streak kehadiran harian."
-  );
+  .setDescription("☀️ Ambil uang belanja pasar tiap 20 jam + tambahan bonus streak kehadiran harian.");
 
 export const portfolioCommand = new SlashCommandBuilder()
   .setName("portfolio")
-  .setDescription(
-    "🪪 Cetak Kartu Usaha & buku kas milikmu atau pedagang lain di pasar."
-  )
+  .setDescription("🪪 Cetak Kartu Usaha & buku kas milikmu atau pedagang lain di pasar.")
   .addUserOption((opt) =>
     opt
       .setName("warga")
       .setDescription("Pedagang yang ingin dilihat Kartu Usahanya (opsional)")
-      .setRequired(false)
+      .setRequired(false),
   );
 
 export const cardCommand = new SlashCommandBuilder()
   .setName("card")
-  .setDescription(
-    "🪪 Pintasan /portfolio — Cetak Kartu Usaha & buku kas pedagang pasar malam."
-  )
+  .setDescription("🪪 Pintasan /portfolio — Cetak Kartu Usaha & buku kas pedagang pasar malam.")
   .addUserOption((opt) =>
     opt
       .setName("warga")
       .setDescription("Pedagang yang ingin dilihat Kartu Usahanya (opsional)")
-      .setRequired(false)
+      .setRequired(false),
   );
 
 export const workCommand = new SlashCommandBuilder()
   .setName("work")
-  .setDescription(
-    "☕ Giliran seduh kopi & belanja bahan baku: takaran murni Gayo atau racikan campuran."
-  );
+  .setDescription("☕ Giliran seduh kopi & belanja bahan baku: takaran murni Gayo atau racikan campuran.");
 
 export const bisnisCommand = new SlashCommandBuilder()
   .setName("bisnis")
-  .setDescription(
-    "🏪 Ekspansi Gerobak/Kedai Kopi, Simpanan Emas, Unit Koperasi & klaim omzet harian."
-  );
+  .setDescription("🏪 Ekspansi Gerobak/Kedai Kopi, Simpanan Emas, Unit Koperasi & klaim omzet harian.");
 
 export const jalanPintasCommand = new SlashCommandBuilder()
   .setName("jalan-pintas")
-  .setDescription(
-    "⚡ Fasilitas talangan kilat (bunga 8%/hari) & meja putar belakang pasar malam."
-  );
+  .setDescription("⚡ Fasilitas talangan kilat (bunga 8%/hari) & meja putar belakang pasar malam.");
 
 export const koperasiCommand = new SlashCommandBuilder()
   .setName("koperasi")
-  .setDescription(
-    "🤝 Kas koperasi bersama satu server: patungan modal & talangi tunggakan lapak rekan."
-  );
+  .setDescription("🤝 Kas koperasi bersama satu server: patungan modal & talangi tunggakan lapak rekan.");
 
 export const leaderboardCommand = new SlashCommandBuilder()
   .setName("leaderboard")
-  .setDescription(
-    "🏆 Papan peringkat 5 pedagang dengan kekayaan bersih tertinggi di pasar malam."
-  );
+  .setDescription("🏆 Papan peringkat 5 pedagang dengan kekayaan bersih tertinggi di pasar malam.");
 
 export const shopCommand = new SlashCommandBuilder()
   .setName("shop")
-  .setDescription(
-    "🎨 Katalog tema Kartu Usaha dengan pratinjau langsung atas nama lapakmu."
-  );
+  .setDescription("🎨 Katalog tema Kartu Usaha dengan pratinjau langsung atas nama lapakmu.");
 
 export const devCommand = new SlashCommandBuilder()
   .setName("dev")
-  .setDescription(
-    "🛠️ Panel kontrol, monitor telemetri real-time, simulasi pasar & alat uji Developer KARSA."
-  );
+  .setDescription("🛠️ Panel kontrol, monitor telemetri real-time, simulasi pasar & alat uji Developer KARSA.");
 
 export const COMMAND_BUILDERS = [
   startCommand,
@@ -171,8 +144,9 @@ export const COMMAND_BUILDERS = [
   devCommand,
 ] as const;
 
-export const COMMAND_DEFINITIONS: RESTPostAPIChatInputApplicationCommandsJSONBody[] =
-  COMMAND_BUILDERS.map((builder) => builder.toJSON());
+export const COMMAND_DEFINITIONS: RESTPostAPIChatInputApplicationCommandsJSONBody[] = COMMAND_BUILDERS.map(
+  (builder) => builder.toJSON(),
+);
 
 export const COMMANDS = COMMAND_DEFINITIONS;
 

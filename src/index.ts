@@ -1,14 +1,13 @@
 import {
   ActivityType,
+  type ButtonInteraction,
+  type ChatInputCommandInteraction,
   Client,
   Events,
   GatewayIntentBits,
-  MessageFlags,
+  type Interaction,
   REST,
   Routes,
-  type ButtonInteraction,
-  type ChatInputCommandInteraction,
-  type Interaction,
   type StringSelectMenuInteraction,
 } from "discord.js";
 import { COMMAND_DEFINITIONS } from "./commands/definitions.ts";
@@ -45,7 +44,7 @@ export async function updateBotApplicationProfile(token: string): Promise<void> 
   } catch (err) {
     console.warn(
       "⚠️ [REST] Gagal memperbarui bio aplikasi Discord (diabaikan):",
-      err instanceof Error ? err.message : err
+      err instanceof Error ? err.message : err,
     );
   }
 }
@@ -53,10 +52,7 @@ export async function updateBotApplicationProfile(token: string): Promise<void> 
 /**
  * Menjalankan rotasi status & aktivitas Playing pada profil bot Discord.
  */
-export function startPresenceRotation(
-  client: Client,
-  intervalMs = 45_000
-): Timer {
+export function startPresenceRotation(client: Client, intervalMs = 45_000): Timer {
   let index = 0;
 
   client.user?.setPresence({
@@ -97,7 +93,7 @@ export function startPresenceRotation(
 export async function registerSlashCommands(
   token: string,
   clientId: string,
-  guildId?: string
+  guildId?: string,
 ): Promise<void> {
   const rest = new REST({ version: "10" }).setToken(token);
 
@@ -106,16 +102,14 @@ export async function registerSlashCommands(
       // Clear global commands first so Global + Guild scopes never duplicate in Discord UI!
       await rest.put(Routes.applicationCommands(clientId), { body: [] });
       console.log(
-        `📡 [REST] Membersihkan duplikat Global & mendaftarkan ${COMMAND_DEFINITIONS.length} Slash Command ke Guild (${guildId})...`
+        `📡 [REST] Membersihkan duplikat Global & mendaftarkan ${COMMAND_DEFINITIONS.length} Slash Command ke Guild (${guildId})...`,
       );
       await rest.put(Routes.applicationGuildCommands(clientId, guildId.trim()), {
         body: COMMAND_DEFINITIONS,
       });
       console.log("✅ [REST] Slash Command Guild berhasil didaftarkan secara instan (bebas duplikat)!");
     } else {
-      console.log(
-        `🌐 [REST] Mendaftarkan ${COMMAND_DEFINITIONS.length} Slash Command secara Global...`
-      );
+      console.log(`🌐 [REST] Mendaftarkan ${COMMAND_DEFINITIONS.length} Slash Command secara Global...`);
       await rest.put(Routes.applicationCommands(clientId), {
         body: COMMAND_DEFINITIONS,
       });
@@ -130,8 +124,8 @@ export async function registerSlashCommands(
  * Helper pemuat modul dinamis yang aman terhadap pemeriksaan statis TypeScript
  * saat beberapa submodul dijalankan secara independen.
  */
-async function loadModule(specifier: string): Promise<Record<string, any>> {
-  return (await import(specifier)) as Record<string, any>;
+async function loadModule(specifier: string): Promise<Record<string, unknown>> {
+  return (await import(specifier)) as Record<string, unknown>;
 }
 
 /**
@@ -227,9 +221,7 @@ export async function runDemoMode(): Promise<void> {
   }
 
   // 2. Tampilkan daftar Slash Command yang terdaftar
-  console.log(
-    `✅ [2/3] ${COMMAND_DEFINITIONS.length} Slash Command terdaftar di sistem:`
-  );
+  console.log(`✅ [2/3] ${COMMAND_DEFINITIONS.length} Slash Command terdaftar di sistem:`);
   for (const cmd of COMMAND_DEFINITIONS) {
     console.log(`   • /${cmd.name.padEnd(14, " ")} — ${cmd.description}`);
   }
@@ -245,10 +237,7 @@ export async function runDemoMode(): Promise<void> {
       await testRenderMod.main();
     }
   } catch (err) {
-    console.warn(
-      "ℹ️ [3/3] Gagal menjalankan test-render otomatis:",
-      (err as Error).message
-    );
+    console.warn("ℹ️ [3/3] Gagal menjalankan test-render otomatis:", (err as Error).message);
   }
 
   console.log("");
@@ -284,7 +273,7 @@ export async function main(): Promise<void> {
   if (isDemoFlag || !token) {
     if (!isDemoFlag && !token) {
       console.log(
-        "ℹ️  DISCORD_TOKEN tidak ditemukan di environment. Menjalankan Mode Demo (`--demo`) secara otomatis...\n"
+        "ℹ️  DISCORD_TOKEN tidak ditemukan di environment. Menjalankan Mode Demo (`--demo`) secara otomatis...\n",
       );
     }
     await runDemoMode();
@@ -307,9 +296,7 @@ export async function main(): Promise<void> {
   if (token && clientId && process.env.REGISTER_COMMANDS_ON_BOOT !== "false") {
     await registerSlashCommands(token, clientId, guildId);
   } else if (!clientId) {
-    console.warn(
-      "⚠️ DISCORD_CLIENT_ID belum diatur di .env — melewati registrasi Slash Command otomatis."
-    );
+    console.warn("⚠️ DISCORD_CLIENT_ID belum diatur di .env — melewati registrasi Slash Command otomatis.");
   }
 
   const client = new Client({
@@ -320,9 +307,7 @@ export async function main(): Promise<void> {
 
   client.once(Events.ClientReady, async (readyClient) => {
     console.log("════════════════════════════════════════════════════════════════════");
-    console.log(
-      `☕  KARSA — Pasar Malam & Koperasi Pedagang Online sebagai ${readyClient.user.tag}`
-    );
+    console.log(`☕  KARSA — Pasar Malam & Koperasi Pedagang Online sebagai ${readyClient.user.tag}`);
     console.log(`🏪  Melayani ${readyClient.guilds.cache.size} Server Discord`);
     console.log("════════════════════════════════════════════════════════════════════");
 

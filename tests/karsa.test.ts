@@ -22,6 +22,12 @@ import {
   workShift,
 } from "../src/db/index.ts";
 import {
+  getCurrentMarketEvent,
+  getRankForLevel,
+  MARKET_EVENTS,
+  PRESTIGE_RANKS,
+} from "../src/game/mechanics.ts";
+import {
   renderAzabCard,
   renderCoopCard,
   renderDevMonitorCard,
@@ -30,12 +36,6 @@ import {
 } from "../src/renderer/pixelCard.ts";
 import { renderAvatarV3 } from "../src/renderer/renderAvatarV3.ts";
 import { renderBannerV3 } from "../src/renderer/renderBannerV3.ts";
-import {
-  MARKET_EVENTS,
-  PRESTIGE_RANKS,
-  getCurrentMarketEvent,
-  getRankForLevel,
-} from "../src/game/mechanics.ts";
 
 const TEST_USERS = [
   "test_u_acid",
@@ -118,9 +118,7 @@ describe("KARSA Bot — Unit & Integration Test Suite", () => {
       const initialBalance = userBefore.balance;
 
       const failingTx = sqlite.transaction(() => {
-        sqlite
-          .query("UPDATE users SET balance = balance + 99000000 WHERE id = ?")
-          .run("test_u_rollback");
+        sqlite.query("UPDATE users SET balance = balance + 99000000 WHERE id = ?").run("test_u_rollback");
         recordTransaction("test_u_rollback", "UNCOMMITTED_TX", 99_000_000, "Should roll back");
         throw new Error("Simulated mid-transaction failure");
       });
@@ -164,9 +162,7 @@ describe("KARSA Bot — Unit & Integration Test Suite", () => {
       expect(firstClaim.streak).toBe(1);
 
       const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
-      sqlite
-        .query("UPDATE users SET last_daily_at = ? WHERE id = ?")
-        .run(twentyFourHoursAgo, "test_u_daily");
+      sqlite.query("UPDATE users SET last_daily_at = ? WHERE id = ?").run(twentyFourHoursAgo, "test_u_daily");
       sqlite
         .query("UPDATE ledger_logs SET created_at = ? WHERE user_id = ? AND kind = 'DAILY_MODAL'")
         .run(twentyFourHoursAgo, "test_u_daily");
@@ -292,7 +288,7 @@ describe("KARSA Bot — Unit & Integration Test Suite", () => {
         "test_u_victim",
         "KorbanPinjol",
         "pinjol",
-        TEST_GUILD_ID
+        TEST_GUILD_ID,
       );
 
       expect(shortcutRes.user.is_seized).toBe(1);
@@ -327,17 +323,14 @@ describe("KARSA Bot — Unit & Integration Test Suite", () => {
         .run("test_u_coop");
       const coopBefore = getOrCreateServerCoop(TEST_GUILD_ID);
 
-      const patunganRes = investOrRescueCoop(
-        "test_u_coop",
-        "WargaKoperasi",
-        "patungan",
-        TEST_GUILD_ID
-      );
+      const patunganRes = investOrRescueCoop("test_u_coop", "WargaKoperasi", "patungan", TEST_GUILD_ID);
       expect(patunganRes.ok).toBe(true);
       expect(patunganRes.coop.pool_balance).toBe(coopBefore.pool_balance + 1_500_000);
       expect((patunganRes.coop.contributors || []).length).toBeGreaterThanOrEqual(1);
       // Verify patungan at Level 2 does NOT prematurely unlock saham_koperasi (requires Kedai Lv.3)
-      const coopBizAfterPatungan = getUserBusinesses("test_u_coop").find((b) => b.biz_type === "saham_koperasi");
+      const coopBizAfterPatungan = getUserBusinesses("test_u_coop").find(
+        (b) => b.biz_type === "saham_koperasi",
+      );
       expect(coopBizAfterPatungan?.level).toBe(0);
 
       // Verify rescue is rejected without deducting cash when nobody is seized
@@ -356,7 +349,7 @@ describe("KARSA Bot — Unit & Integration Test Suite", () => {
         "WargaKoperasi",
         "rescue",
         TEST_GUILD_ID,
-        "test_u_victim"
+        "test_u_victim",
       );
       expect(rescueRes.ok).toBe(true);
       expect(rescueRes.rescuedUsername).toBe("KorbanSegel");
@@ -387,7 +380,7 @@ describe("KARSA Bot — Unit & Integration Test Suite", () => {
           totalDebt: 3_000_000,
           assetSeizedName: "Mesin Kopi Kedai",
           karmaAfter: 55,
-        })
+        }),
       );
       assertValidPngBuffer(renderCoopCard(coop));
       assertValidPngBuffer(renderLeaderboardCard(leaders, coop));

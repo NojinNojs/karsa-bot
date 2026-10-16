@@ -1,12 +1,8 @@
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import { MessageFlags } from "discord.js";
 import { CUSTOM_IDS } from "../src/commands/definitions.ts";
-import {
-  buildStateAwarePortfolioRows,
-  buildCooldownTag,
-} from "../src/commands/handlers.ts";
-import { getOrCreateUser, sqlite } from "../src/db/index.ts";
-import { DAILY_COOLDOWN_MS, WORK_COOLDOWN_MS } from "../src/db/index.ts";
+import { buildCooldownTag, buildStateAwarePortfolioRows } from "../src/commands/handlers.ts";
+import { DAILY_COOLDOWN_MS, getOrCreateUser, sqlite, WORK_COOLDOWN_MS } from "../src/db/index.ts";
 import { BUSINESS_CATALOG, PRESTIGE_RANKS } from "../src/game/mechanics.ts";
 
 const TEST_USERS = ["ui_lv1", "ui_lv2", "ui_debt", "ui_seized"] as const;
@@ -39,7 +35,10 @@ function buttonsOf(row: ReturnType<typeof buildStateAwarePortfolioRows>[number])
   return row.toJSON().components as unknown as ButtonJSON[];
 }
 
-function assertButtonRowPayload(rows: ReturnType<typeof buildStateAwarePortfolioRows>, context: string): void {
+function assertButtonRowPayload(
+  rows: ReturnType<typeof buildStateAwarePortfolioRows>,
+  context: string,
+): void {
   expect(rows.length).toBeLessThanOrEqual(DISCORD_LIMITS.maxRowsPerMessage);
   for (const row of rows) {
     const components = buttonsOf(row);
@@ -48,7 +47,7 @@ function assertButtonRowPayload(rows: ReturnType<typeof buildStateAwarePortfolio
       expect(typeof btn.label).toBe("string");
       const label = btn.label ?? "";
       expect(label.length, `${context}: button label "${label}" must be <= 80 chars`).toBeLessThanOrEqual(
-        DISCORD_LIMITS.maxButtonLabel
+        DISCORD_LIMITS.maxButtonLabel,
       );
       expect(label.length, `${context}: button "${label}" must not be empty`).toBeGreaterThan(0);
     }
@@ -61,7 +60,7 @@ function labelsOf(rows: ReturnType<typeof buildStateAwarePortfolioRows>): string
 
 function findButton(
   rows: ReturnType<typeof buildStateAwarePortfolioRows>,
-  customId: string
+  customId: string,
 ): ButtonJSON | null {
   for (const row of rows) {
     for (const c of buttonsOf(row)) {
@@ -105,7 +104,7 @@ describe("KARSA Discord UI — State-Driven Button Logic & Payload Limits", () =
   });
 
   test("Level 2 player: coop unlocks (enabled, no lock label)", () => {
-    const user = getOrCreateUser("ui_lv2", "PedagangNaik");
+    const _user = getOrCreateUser("ui_lv2", "PedagangNaik");
     sqlite.query("UPDATE users SET level = 2 WHERE id = ?").run("ui_lv2");
     const updated = getOrCreateUser("ui_lv2", "PedagangNaik");
 
@@ -126,7 +125,7 @@ describe("KARSA Discord UI — State-Driven Button Logic & Payload Limits", () =
   });
 
   test("indebted player: business button is disabled, pay-seal + cicil buttons appear, coop stays gated by level", () => {
-    const user = getOrCreateUser("ui_debt", "WargaUtang");
+    const _user = getOrCreateUser("ui_debt", "WargaUtang");
     sqlite.query("UPDATE users SET pinjol_debt = 43500000, balance = 1500000 WHERE id = ?").run("ui_debt");
     const indebted = getOrCreateUser("ui_debt", "WargaUtang");
 
@@ -149,10 +148,12 @@ describe("KARSA Discord UI — State-Driven Button Logic & Payload Limits", () =
   });
 
   test("seized player with zero liquid cash: pay buttons are disabled (cannot pay with nothing)", () => {
-    const user = getOrCreateUser("ui_seized", "LapakSegel");
-    sqlite.query(
-      "UPDATE users SET pinjol_debt = 43500000, balance = 0, emergency_fund = 0, is_seized = 1 WHERE id = ?"
-    ).run("ui_seized");
+    const _user = getOrCreateUser("ui_seized", "LapakSegel");
+    sqlite
+      .query(
+        "UPDATE users SET pinjol_debt = 43500000, balance = 0, emergency_fund = 0, is_seized = 1 WHERE id = ?",
+      )
+      .run("ui_seized");
     const seized = getOrCreateUser("ui_seized", "LapakSegel");
 
     const rows = buildStateAwarePortfolioRows(seized);
@@ -190,7 +191,14 @@ describe("KARSA Discord UI — State-Driven Button Logic & Payload Limits", () =
     for (const rank of PRESTIGE_RANKS) {
       expect(rank.title.length, `Rank title "${rank.title}" must be <= 14 chars`).toBeLessThanOrEqual(14);
     }
-    const allBadges = ["WARGA BARU", "WARUNG JUJUR", "WARGA PASAR", "CATATAN MERAH", "LAPAK DISEGEL", "BANGKIT LAGI"];
+    const allBadges = [
+      "WARGA BARU",
+      "WARUNG JUJUR",
+      "WARGA PASAR",
+      "CATATAN MERAH",
+      "LAPAK DISEGEL",
+      "BANGKIT LAGI",
+    ];
     for (const badge of allBadges) {
       expect(badge.length, `Badge "${badge}" must be <= 13 chars`).toBeLessThanOrEqual(13);
     }

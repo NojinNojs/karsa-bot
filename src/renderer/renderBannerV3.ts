@@ -9,10 +9,7 @@ import {
   R,
   WARM_KOPI_THEME,
 } from "./designSpec.ts";
-import {
-  drawPixelText,
-  drawPixelTextCentered,
-} from "./pixelFont.ts";
+import { drawPixelText, drawPixelTextCentered } from "./pixelFont.ts";
 import { drawSideMugMotif } from "./renderAvatarV3.ts";
 
 export function renderBannerV3(): Buffer {
@@ -89,17 +86,7 @@ export function renderBannerV3(): Buffer {
     lo: T.insetLo,
     hi: T.highlight,
   });
-  drawPixelTextCentered(
-    ctx,
-    "/START  •  /PORTFOLIO  •  /WORK",
-    126,
-    78,
-    192,
-    20,
-    T.amberHi,
-    T.ink,
-    1
-  );
+  drawPixelTextCentered(ctx, "/START  •  /PORTFOLIO  •  /WORK", 126, 78, 192, 20, T.amberHi, T.ink, 1);
 
   return exportUpscaledPng(canvas, 2);
 }

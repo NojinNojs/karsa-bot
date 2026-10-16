@@ -1,9 +1,4 @@
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder,
-} from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import { getCurrentMarketEvent } from "./mechanics.ts";
 
 export type GuideCategoryId = "dasar" | "usaha" | "koperasi" | "bahaya";
@@ -72,19 +67,14 @@ export const GUIDE_SECTIONS: Record<GuideCategoryId, GuideSection> = {
   },
 };
 
-export function buildHelpEmbedsAndComponents(
-  category: GuideCategoryId | string = "dasar"
-): {
+export function buildHelpEmbedsAndComponents(category: GuideCategoryId | string = "dasar"): {
   content: string;
   embeds: EmbedBuilder[];
   components: ActionRowBuilder<ButtonBuilder>[];
 } {
   const normalized = category.replace(/^btn_help_/, "").toLowerCase();
   const activeId: GuideCategoryId =
-    normalized === "dasar" ||
-    normalized === "usaha" ||
-    normalized === "koperasi" ||
-    normalized === "bahaya"
+    normalized === "dasar" || normalized === "usaha" || normalized === "koperasi" || normalized === "bahaya"
       ? normalized
       : "dasar";
   const section = GUIDE_SECTIONS[activeId];
@@ -95,7 +85,7 @@ export function buildHelpEmbedsAndComponents(
     .setTitle(section.title)
     .setDescription(
       section.lines.join("\n\n") +
-        `\n\n🌤️ **Cuaca Pasar:** ${event.title} (${event.goldBonusNote} • ganti <t:${nextChangeUnixSec}:R>)`
+        `\n\n🌤️ **Cuaca Pasar:** ${event.title} (${event.goldBonusNote} • ganti <t:${nextChangeUnixSec}:R>)`,
     );
 
   const categoryOrder: GuideCategoryId[] = ["dasar", "usaha", "koperasi", "bahaya"];
@@ -111,10 +101,7 @@ export function buildHelpEmbedsAndComponents(
       : ButtonStyle.Secondary;
 
     row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(item.buttonId)
-        .setLabel(item.buttonLabel)
-        .setStyle(style)
+      new ButtonBuilder().setCustomId(item.buttonId).setLabel(item.buttonLabel).setStyle(style),
     );
   }
 

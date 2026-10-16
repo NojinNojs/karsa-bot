@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -41,7 +41,7 @@ export const user_businesses = sqliteTable(
     daily_yield: integer("daily_yield").notNull().default(0),
     ethical_mode: integer("ethical_mode").notNull().default(1),
   },
-  (table) => [uniqueIndex("user_businesses_user_id_biz_type_unique").on(table.user_id, table.biz_type)]
+  (table) => [uniqueIndex("user_businesses_user_id_biz_type_unique").on(table.user_id, table.biz_type)],
 );
 
 export const server_coop = sqliteTable("server_coop", {

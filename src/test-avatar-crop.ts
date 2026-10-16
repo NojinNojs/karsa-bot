@@ -1,6 +1,6 @@
-import { createCanvas, GlobalFonts, loadImage } from "@napi-rs/canvas";
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { createCanvas, GlobalFonts, loadImage } from "@napi-rs/canvas";
 import { renderAvatarV3 } from "./renderer/renderAvatarV3.ts";
 
 const avatarBuf = renderAvatarV3();

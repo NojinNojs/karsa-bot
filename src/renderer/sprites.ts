@@ -205,29 +205,11 @@ export const SPRITES: Record<string, SpriteDef> = {
     },
   },
   coin: {
-    map: [
-      "..kkkk..",
-      ".kaabbk.",
-      "kaabbbck",
-      "kabbbbck",
-      "kabbbbck",
-      "kbbbbcck",
-      ".kbccck.",
-      "..kkkk..",
-    ],
+    map: ["..kkkk..", ".kaabbk.", "kaabbbck", "kabbbbck", "kabbbbck", "kbbbbcck", ".kbccck.", "..kkkk.."],
     pal: { k: "#0d0820", a: "#fff1a8", b: "#ffd35a", c: "#e0902f" },
   },
   gem: {
-    map: [
-      "..kkkk..",
-      ".kwccCk.",
-      "kwcccCCk",
-      "kccCCCdk",
-      ".kcCCdk.",
-      "..kCdk..",
-      "...kk...",
-      "........",
-    ],
+    map: ["..kkkk..", ".kwccCk.", "kwcccCCk", "kccCCCdk", ".kcCCdk.", "..kCdk..", "...kk...", "........"],
     pal: { k: "#0d0820", w: "#ffffff", c: "#8fe3f5", C: "#4aa3e0", d: "#2d5ca8" },
   },
   shop: {

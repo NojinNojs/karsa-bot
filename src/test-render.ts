@@ -2,7 +2,6 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   buyOrUpgradeBusiness,
-  resetAllUserData,
   claimDailyBonus,
   claimPassiveIncome,
   equipOrBuySkin,
@@ -15,7 +14,12 @@ import {
   takeShortcutGambleOrPinjol,
   workShift,
 } from "./db/index.ts";
-import { renderAzabCard, renderCoopCard, renderLeaderboardCard, renderPortfolioCard } from "./renderer/pixelCard.ts";
+import {
+  renderAzabCard,
+  renderCoopCard,
+  renderLeaderboardCard,
+  renderPortfolioCard,
+} from "./renderer/pixelCard.ts";
 
 export async function runRenderTests(): Promise<void> {
   const outDir = resolve(process.cwd(), "output");
@@ -36,7 +40,9 @@ export async function runRenderTests(): Promise<void> {
   const dtGold = (performance.now() - t0).toFixed(1);
   const goldPath = resolve(outDir, "portfolio_retro_gold.png");
   writeFileSync(goldPath, goldPng);
-  console.log(`   ✅ [Render 1/6] portfolio_retro_gold.png (${(goldPng.length / 1024).toFixed(1)} KB in ${dtGold}ms)`);
+  console.log(
+    `   ✅ [Render 1/6] portfolio_retro_gold.png (${(goldPng.length / 1024).toFixed(1)} KB in ${dtGold}ms)`,
+  );
 
   // 2. Render GameBoy DMG-01 Skin Preview
   const gbPng = renderPortfolioCard({ user, businesses, coop, overrideSkin: "gameboy_green" });
@@ -83,7 +89,7 @@ export async function runRenderTests(): Promise<void> {
   console.log(`   ✅ [Render 6/6] leaderboard_card.png (${(leaderboardPng.length / 1024).toFixed(1)} KB)`);
 
   console.log(
-    `   📊 [Simulasi Ekonomi] Shift Jujur: +Rp${(shift.deltaRp / 1_000_000).toFixed(2)}Jt | Klaim Dividen: +Rp${(claim.net / 1_000_000).toFixed(2)}Jt | Daily Bonus: +Rp${(daily.rewardRp / 1_000).toFixed(0)}Rb (Streak ${daily.streak}x) | Upgrade Kedai: Lv.${upg.nextLevel} | Rescue Koperasi: ${rescue.ok} | Top Leaderboard: ${topLeaders.length} warga | Skin: ${skinEquip.user.skin_id}`
+    `   📊 [Simulasi Ekonomi] Shift Jujur: +Rp${(shift.deltaRp / 1_000_000).toFixed(2)}Jt | Klaim Dividen: +Rp${(claim.net / 1_000_000).toFixed(2)}Jt | Daily Bonus: +Rp${(daily.rewardRp / 1_000).toFixed(0)}Rb (Streak ${daily.streak}x) | Upgrade Kedai: Lv.${upg.nextLevel} | Rescue Koperasi: ${rescue.ok} | Top Leaderboard: ${topLeaders.length} warga | Skin: ${skinEquip.user.skin_id}`,
   );
 }
 
