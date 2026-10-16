@@ -330,16 +330,26 @@ describe("KARSA Bot — Unit & Integration Test Suite", () => {
         TEST_GUILD_ID
       );
       expect(patunganRes.ok).toBe(true);
-      expect(patunganRes.coop.pool_balance).toBe(coopBefore.pool_balance + 5_000_000);
+      expect(patunganRes.coop.pool_balance).toBe(coopBefore.pool_balance + 1_500_000);
+      expect((patunganRes.coop.contributors || []).length).toBeGreaterThanOrEqual(1);
+
+      // Create an indebted fellow player to verify cross-player rescue!
+      getOrCreateUser("test_u_victim", "KorbanSegel");
+      takeShortcutGambleOrPinjol("test_u_victim", "KorbanSegel", "slot", TEST_GUILD_ID);
+      expect(getOrCreateUser("test_u_victim", "KorbanSegel").is_seized).toBe(1);
 
       const rescueRes = investOrRescueCoop(
         "test_u_coop",
         "WargaKoperasi",
         "rescue",
-        TEST_GUILD_ID
+        TEST_GUILD_ID,
+        "test_u_victim"
       );
       expect(rescueRes.ok).toBe(true);
-      expect(rescueRes.user.gems).toBe(1);
+      expect(rescueRes.rescuedUsername).toBe("KorbanSegel");
+      expect(rescueRes.user.gems).toBe(2);
+      expect(getOrCreateUser("test_u_victim", "KorbanSegel").is_seized).toBe(0);
+      expect(getOrCreateUser("test_u_victim", "KorbanSegel").pinjol_debt).toBe(0);
     });
   });
 

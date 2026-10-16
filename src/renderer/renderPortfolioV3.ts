@@ -155,7 +155,7 @@ export function renderPortfolioV3(input: PortfolioV3Input): Buffer {
 
   // 4. Right Column: Assets & Savings (x=154, y=40, w=218, h=138) — exact 6px gap from Left Column
   drawBevelPanel(ctx, 154, 40, 218, 138, T, { pad: 6 });
-  const totalNw = businesses.reduce((a, b) => a + b.value, 0) + user.balance;
+  const totalNw = Math.max(0, businesses.reduce((a, b) => a + b.value, 0) + user.balance - (user.pinjol_debt || 0));
   drawPixelText(ctx, "LAPAK & SIMPANAN", 162, 46, T.crema, T.ink, 1);
   drawPixelTextRight(ctx, `HARTA ${fmtRp(totalNw)}`, 364, 46, T.greenHi, T.ink, 1);
   drawDivider(ctx, 160, 56, 206, T);

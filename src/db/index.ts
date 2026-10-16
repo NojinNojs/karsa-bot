@@ -4,8 +4,15 @@ import { dirname, resolve } from "node:path";
 import { BUSINESS_CATALOG, WORK_DILEMMAS, getCurrentMarketEvent, getRankForLevel } from "../game/mechanics.ts";
 import { SKIN_PALETTES, type SkinId } from "../renderer/sprites.ts";
 
-const DB_PATH = resolve(process.cwd(), "data/kota_mandiri.sqlite");
-mkdirSync(dirname(DB_PATH), { recursive: true });
+const isTestEnv =
+  process.env.NODE_ENV === "test" ||
+  process.env.KARSA_TEST_DB === "1" ||
+  process.argv.some((a) => a.includes(".test.ts") || a === "test");
+
+const DB_PATH = isTestEnv ? ":memory:" : resolve(process.cwd(), "data/kota_mandiri.sqlite");
+if (!isTestEnv) {
+  mkdirSync(dirname(DB_PATH), { recursive: true });
+}
 
 export const sqlite = new Database(DB_PATH, { create: true });
 sqlite.exec("PRAGMA journal_mode = WAL;");
@@ -16,6 +23,16 @@ export const WORK_COOLDOWN_MS = 30 * 1000; // 30 detik antar-giliran seduh
 export const PASSIVE_COOLDOWN_MS = 5 * 60 * 1000; // 5 menit antar-klaim omzet
 export const DAILY_COOLDOWN_MS = 20 * 60 * 60 * 1000; // 20 jam
 export const DAILY_STREAK_RESET_MS = 48 * 60 * 60 * 1000; // 48 jam
+export const COOP_PATUNGAN_COST_RP = 1_500_000;
+export const COOP_RESCUE_COST_RP = 1_500_000;
+
+export interface ServerCoopContributor {
+  userId?: string;
+  name: string;
+  role: string;
+  totalRp: number;
+  warungSaved: number;
+}
 
 export interface UserRow {
   id: string;
@@ -59,6 +76,8 @@ export interface ServerCoopRow {
   eco_level: number;
   eco_health: number;
   rescued_count: number;
+  contributors_json?: string;
+  contributors?: ServerCoopContributor[];
 }
 
 export interface LeaderboardEntry {
@@ -128,7 +147,8 @@ export function initDatabase(): void {
       pool_balance INTEGER NOT NULL DEFAULT 0,
       eco_level INTEGER NOT NULL DEFAULT 1,
       eco_health INTEGER NOT NULL DEFAULT 50,
-      rescued_count INTEGER NOT NULL DEFAULT 0
+      rescued_count INTEGER NOT NULL DEFAULT 0,
+      contributors_json TEXT NOT NULL DEFAULT '[]'
     );
 
     CREATE TABLE IF NOT EXISTS ledger_logs (
@@ -146,6 +166,7 @@ export function initDatabase(): void {
     "ALTER TABLE users ADD COLUMN is_seized INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE users ADD COLUMN daily_streak INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE users ADD COLUMN last_passive_at INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE server_coop ADD COLUMN contributors_json TEXT NOT NULL DEFAULT '[]'",
   ];
   for (const sql of alterCols) {
     try {
@@ -285,14 +306,21 @@ export function getUserBusinesses(userId: string): UserBusinessRow[] {
 }
 
 export function getOrCreateServerCoop(guildId = "global_kota_mandiri"): ServerCoopRow {
-  const row = sqlite.query("SELECT * FROM server_coop WHERE guild_id = ?").get(guildId) as ServerCoopRow | null;
-  if (row) return row;
-  sqlite
-    .query(
-      "INSERT INTO server_coop (guild_id, pool_balance, eco_level, eco_health, rescued_count) VALUES (?, 0, 1, 50, 0)"
-    )
-    .run(guildId);
-  return sqlite.query("SELECT * FROM server_coop WHERE guild_id = ?").get(guildId) as ServerCoopRow;
+  let row = sqlite.query("SELECT * FROM server_coop WHERE guild_id = ?").get(guildId) as ServerCoopRow | null;
+  if (!row) {
+    sqlite
+      .query(
+        "INSERT INTO server_coop (guild_id, pool_balance, eco_level, eco_health, rescued_count, contributors_json) VALUES (?, 0, 1, 50, 0, '[]')"
+      )
+      .run(guildId);
+    row = sqlite.query("SELECT * FROM server_coop WHERE guild_id = ?").get(guildId) as ServerCoopRow;
+  }
+  try {
+    row.contributors = JSON.parse(row.contributors_json || "[]");
+  } catch {
+    row.contributors = [];
+  }
+  return row;
 }
 
 export function formatCooldown(ms: number): string {
@@ -378,6 +406,7 @@ export function workShift(
     const newXp = user.xp + xpDelta;
     const newLevel = Math.max(user.level, Math.floor(newXp / 100) + 1);
     leveledUp = newLevel > user.level;
+    const gemBonus = leveledUp ? newLevel - user.level : 0;
 
     const newJobTitle = getRankForLevel(newLevel).title;
     const newBadge =
@@ -397,9 +426,9 @@ export function workShift(
 
     sqlite
       .query(
-        "UPDATE users SET balance = ?, karma = ?, xp = ?, level = ?, job_title = ?, badge = ?, active_quest = ?, last_work_at = ? WHERE id = ?"
+        "UPDATE users SET balance = ?, karma = ?, xp = ?, level = ?, gems = gems + ?, job_title = ?, badge = ?, active_quest = ?, last_work_at = ? WHERE id = ?"
       )
-      .run(newBalance, newKarma, newXp, newLevel, newJobTitle, newBadge, nextQuest, now, userId);
+      .run(newBalance, newKarma, newXp, newLevel, gemBonus, newJobTitle, newBadge, nextQuest, now, userId);
 
     recordTransaction(
       userId,
@@ -572,12 +601,16 @@ export function claimPassiveIncome(
   }
 
   const taxRate = user.karma >= 80 ? 0.05 : 0.2;
-  const net = Math.round(gross * marketEvent.passiveMultiplier * (1 - taxRate));
+  const coop = getOrCreateServerCoop("global_kota_mandiri");
+  const marketLvlBonus = 1 + Math.max(0, coop.eco_level - 1) * 0.05;
+  const net = Math.round(gross * marketEvent.passiveMultiplier * marketLvlBonus * (1 - taxRate));
 
   const tx = sqlite.transaction(() => {
+    const newBal = user.balance + net;
+    const nextQuest = computeProgressionQuest({ ...user, balance: newBal }, bizzes);
     sqlite
-      .query("UPDATE users SET balance = balance + ?, last_passive_at = ? WHERE id = ?")
-      .run(net, now, userId);
+      .query("UPDATE users SET balance = ?, last_passive_at = ?, active_quest = ? WHERE id = ?")
+      .run(newBal, now, nextQuest, userId);
     recordTransaction(
       userId,
       "PASSIVE_CLAIM",
@@ -742,16 +775,19 @@ export function investOrRescueCoop(
   userId: string,
   username: string,
   action: "patungan" | "rescue",
-  guildId = "global_kota_mandiri"
+  guildId = "global_kota_mandiri",
+  targetUserId?: string
 ) {
   const user = getOrCreateUser(userId, username);
   const coop = getOrCreateServerCoop(guildId);
-  const amount = action === "patungan" ? 5_000_000 : 10_000_000;
+  const amount = action === "patungan" ? COOP_PATUNGAN_COST_RP : COOP_RESCUE_COST_RP;
 
   if (action === "patungan") {
-    if (user.level < 2 && user.balance < 5_000_000) {
+    if (user.level < 2 && user.balance < amount) {
       return {
         ok: false,
+        amount: 0,
+        rescuedUsername: null as string | null,
         message:
           "🔒 **Syarat Belum Terpenuhi!** Capai **Level 2** terlebih dahulu dengan menyeduh kopi di `/work` sebelum menyetor patungan Koperasi Pasar.",
         user,
@@ -761,6 +797,8 @@ export function investOrRescueCoop(
     if (user.pinjol_debt > 0 || user.is_seized === 1) {
       return {
         ok: false,
+        amount: 0,
+        rescuedUsername: null as string | null,
         message:
           "🔒 **Tunggakan Aktif!** Lunasi tagihan talanganmu terlebih dahulu sebelum menyetor modal ke Koperasi Pasar.",
         user,
@@ -772,14 +810,34 @@ export function investOrRescueCoop(
   if (user.balance < amount) {
     return {
       ok: false,
-      message: `Kas belum cukup untuk aksi koperasi ini (Butuh **Rp${(amount / 1_000_000).toFixed(0)} Juta**, Kas: **Rp${(user.balance / 1_000_000).toFixed(2)} Juta**).`,
+      amount: 0,
+      rescuedUsername: null as string | null,
+      message: `Kas belum cukup untuk aksi koperasi ini (Butuh **Rp ${(amount / 1_000_000).toFixed(1).replace(".", ",")}Jt**, Kasmu: **Rp ${(user.balance / 1_000_000).toFixed(1).replace(".", ",")}Jt**).`,
       user,
       coop,
     };
   }
 
+  let rescuedUsername: string | null = null;
+
   const tx = sqlite.transaction(() => {
+    const contributors: ServerCoopContributor[] = [...(coop.contributors || [])];
+    const existingContrib = contributors.find((c) => c.userId === userId || c.name.toUpperCase() === username.toUpperCase());
+
     if (action === "patungan") {
+      if (existingContrib) {
+        existingContrib.totalRp += amount;
+        existingContrib.role = existingContrib.totalRp >= 4_500_000 ? "PENDIRI KOPERASI" : "MITRA AKTIF";
+      } else {
+        contributors.push({
+          userId,
+          name: username,
+          role: "MITRA AKTIF",
+          totalRp: amount,
+          warungSaved: 0,
+        });
+      }
+
       sqlite
         .query(
           "UPDATE users SET balance = balance - ?, coop_shares = coop_shares + ?, karma = MIN(100, karma + 8) WHERE id = ?"
@@ -787,32 +845,75 @@ export function investOrRescueCoop(
         .run(amount, amount, userId);
       sqlite
         .query(
-          "UPDATE server_coop SET pool_balance = pool_balance + ?, eco_level = MIN(5, 1 + CAST((pool_balance + ?) / 20000000 AS INTEGER)), eco_health = MIN(100, eco_health + 5) WHERE guild_id = ?"
+          "UPDATE server_coop SET pool_balance = pool_balance + ?, eco_level = MIN(5, 1 + CAST((pool_balance + ?) / 3000000 AS INTEGER)), eco_health = MIN(100, eco_health + 6), contributors_json = ? WHERE guild_id = ?"
         )
-        .run(amount, amount, guildId);
+        .run(amount, amount, JSON.stringify(contributors), guildId);
       sqlite
         .query(
-          "UPDATE user_businesses SET level = MAX(1, level), value = value + ?, daily_yield = daily_yield + 450000 WHERE user_id = ? AND biz_type = 'saham_koperasi'"
+          "UPDATE user_businesses SET level = MAX(1, level), value = value + ?, daily_yield = daily_yield + 250000 WHERE user_id = ? AND biz_type = 'saham_koperasi'"
         )
         .run(amount, userId);
       recordTransaction(userId, "COOP_INVEST", -amount, "Iuran Koperasi Warga");
     } else {
-      const debtCleared = Math.max(15_000_000, user.pinjol_debt);
+      // Find target indebted player to rescue (either explicit targetUserId, another indebted player in DB, or self if indebted)
+      let targetRow: UserRow | null = null;
+      if (targetUserId) {
+        targetRow = sqlite
+          .query("SELECT * FROM users WHERE id = ? AND (is_seized = 1 OR pinjol_debt > 0)")
+          .get(targetUserId) as UserRow | null;
+      }
+      if (!targetRow) {
+        targetRow = sqlite
+          .query("SELECT * FROM users WHERE (is_seized = 1 OR pinjol_debt > 0) AND id != ? ORDER BY pinjol_debt DESC LIMIT 1")
+          .get(userId) as UserRow | null;
+      }
+      if (!targetRow && (user.is_seized === 1 || user.pinjol_debt > 0)) {
+        targetRow = user;
+      }
+
+      if (targetRow) {
+        rescuedUsername = targetRow.username;
+        const targetBizzes = getUserBusinesses(targetRow.id);
+        const restoredQuest = computeProgressionQuest(
+          { ...targetRow, pinjol_debt: 0, is_seized: 0, karma: Math.min(100, targetRow.karma + 15) },
+          targetBizzes
+        );
+        sqlite
+          .query(
+            "UPDATE users SET pinjol_debt = 0, is_seized = 0, karma = MIN(100, karma + 15), badge = 'BANGKIT LAGI', active_quest = ? WHERE id = ?"
+          )
+          .run(restoredQuest, targetRow.id);
+      }
+
+      if (existingContrib) {
+        existingContrib.totalRp += amount;
+        existingContrib.warungSaved += 1;
+        existingContrib.role = "PENEBUS WARGA";
+      } else {
+        contributors.push({
+          userId,
+          name: username,
+          role: "PENEBUS WARGA",
+          totalRp: amount,
+          warungSaved: 1,
+        });
+      }
+
       sqlite
         .query(
-          "UPDATE users SET balance = balance - ?, pinjol_debt = 0, is_seized = 0, karma = MIN(100, karma + 20), gems = gems + 1, badge = 'WARUNG JUJUR', active_quest = 'Gerobak warga berhasil ditebus! (+1 Gem)' WHERE id = ?"
+          "UPDATE users SET balance = balance - ?, karma = MIN(100, karma + 25), gems = gems + 2, badge = 'WARUNG JUJUR' WHERE id = ?"
         )
         .run(amount, userId);
       sqlite
         .query(
-          "UPDATE server_coop SET pool_balance = pool_balance + ?, rescued_count = rescued_count + 1, eco_health = MIN(100, eco_health + 6) WHERE guild_id = ?"
+          "UPDATE server_coop SET pool_balance = pool_balance + ?, eco_level = MIN(5, 1 + CAST((pool_balance + ?) / 3000000 AS INTEGER)), rescued_count = rescued_count + 1, eco_health = MIN(100, eco_health + 10), contributors_json = ? WHERE guild_id = ?"
         )
-        .run(amount, guildId);
+        .run(amount, amount, JSON.stringify(contributors), guildId);
       recordTransaction(
         userId,
         "COOP_RESCUE",
         -amount,
-        `Tebus gerobak warga senilai Rp${(debtCleared / 1_000_000).toFixed(1)} Juta`
+        rescuedUsername ? `Tebus segel lapak @${rescuedUsername}` : "Dana talangan darurat Koperasi Warga"
       );
     }
   });
@@ -821,12 +922,18 @@ export function investOrRescueCoop(
   return {
     ok: true,
     amount,
+    rescuedUsername,
     user: getOrCreateUser(userId, username),
     coop: getOrCreateServerCoop(guildId),
   };
 }
 
-export function equipOrBuySkin(userId: string, username: string, skinId: SkinId) {
+export function equipOrBuySkin(
+  userId: string,
+  username: string,
+  skinId: SkinId,
+  payWith: "rp" | "gems" = "rp"
+) {
   const user = getOrCreateUser(userId, username);
   const skin = SKIN_PALETTES[skinId];
   if (!skin) {
@@ -854,11 +961,36 @@ export function equipOrBuySkin(userId: string, username: string, skinId: SkinId)
     };
   }
 
+  if (payWith === "gems") {
+    if (user.gems < skin.priceGems) {
+      return {
+        ok: false,
+        bought: false,
+        message: `Permata 💎 belum cukup untuk membeli **${skin.name}** (Harga: **${skin.priceGems} 💎**, Permatamu: **${user.gems} 💎**).`,
+        user,
+      };
+    }
+    const tx = sqlite.transaction(() => {
+      owned.push(skinId);
+      sqlite
+        .query("UPDATE users SET gems = gems - ?, skin_id = ?, owned_skins = ? WHERE id = ?")
+        .run(skin.priceGems, skinId, JSON.stringify(owned), userId);
+      recordTransaction(userId, "BUY_SKIN_GEMS", 0, `Beli & pasang skin ${skin.name} (${skin.priceGems} Gems)`);
+    });
+    tx.immediate();
+    return {
+      ok: true,
+      bought: true,
+      message: `Selamat! Kamu membeli & memasang skin **${skin.name}** dengan **${skin.priceGems} 💎**!`,
+      user: getOrCreateUser(userId, username),
+    };
+  }
+
   if (user.balance < skin.priceRp) {
     return {
       ok: false,
       bought: false,
-      message: `Kas belum cukup untuk membeli **${skin.name}** (Harga: Rp${(skin.priceRp / 1_000_000).toFixed(0)} Juta, Kas: Rp${(user.balance / 1_000_000).toFixed(2)} Juta).`,
+      message: `Kas belum cukup untuk membeli **${skin.name}** (Harga: **Rp ${(skin.priceRp / 1_000_000).toFixed(1).replace(".", ",")}Jt**, Kasmu: **Rp ${(user.balance / 1_000_000).toFixed(1).replace(".", ",")}Jt**).`,
       user,
     };
   }
@@ -915,11 +1047,16 @@ export function claimDailyBonus(userId: string, username: string): DailyBonusRes
   const karmaBonusRp = user.karma >= 80 ? 250_000 : 0;
   const rewardRp = 500_000 + streakBonus + karmaBonusRp;
   const karmaBonus = 2;
+  const gemReward = streak >= 3 ? 2 : 1;
 
   const tx = sqlite.transaction(() => {
+    const newBal = user.balance + rewardRp;
+    const newKarma = Math.min(100, user.karma + karmaBonus);
+    const bizzes = getUserBusinesses(userId);
+    const nextQuest = computeProgressionQuest({ ...user, balance: newBal, karma: newKarma }, bizzes);
     sqlite
-      .query("UPDATE users SET balance = balance + ?, karma = MIN(100, karma + ?), daily_streak = ?, last_daily_at = ? WHERE id = ?")
-      .run(rewardRp, karmaBonus, streak, now, userId);
+      .query("UPDATE users SET balance = ?, karma = ?, gems = gems + ?, daily_streak = ?, last_daily_at = ?, active_quest = ? WHERE id = ?")
+      .run(newBal, newKarma, gemReward, streak, now, nextQuest, userId);
     recordTransaction(
       userId,
       "DAILY_MODAL",
@@ -937,7 +1074,7 @@ export function claimDailyBonus(userId: string, username: string): DailyBonusRes
     streak,
     remainingMs: 0,
     cooldownText: "0d",
-    message: `☀️ **Uang Belanja Harian Cair Rp${Math.round(rewardRp / 1_000).toLocaleString("id-ID")} Rb!** (Streak Hari ke-${streak}, +${karmaBonus} Reputasi Pasar)`,
+    message: `☀️ **Uang Harian Cair +Rp ${Math.round(rewardRp / 1_000).toLocaleString("id-ID")}Rb & +${gemReward} 💎!** (Streak Hari ke-${streak})`,
     user: updatedUser,
   };
 }
@@ -954,11 +1091,11 @@ export function getTopLeaderboard(limit = 5): LeaderboardEntry[] {
          u.karma AS karma,
          u.balance AS balance,
          COALESCE(SUM(b.value), 0) AS businessValue,
-         (u.balance + COALESCE(SUM(b.value), 0)) AS netWorth
+         MAX(0, u.balance + COALESCE(SUM(b.value), 0) - u.pinjol_debt) AS netWorth
        FROM users u
        LEFT JOIN user_businesses b ON u.id = b.user_id
        GROUP BY u.id
-       ORDER BY (u.balance + COALESCE(SUM(b.value), 0)) DESC, u.karma DESC
+       ORDER BY MAX(0, u.balance + COALESCE(SUM(b.value), 0) - u.pinjol_debt) DESC, u.karma DESC
        LIMIT ?`
     )
     .all(safeLimit) as Array<Omit<LeaderboardEntry, "rank">>;

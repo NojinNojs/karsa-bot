@@ -59,8 +59,8 @@ export const SKIN_PALETTES: Record<SkinId, Palette> = {
   gameboy_green: {
     id: "gameboy_green",
     name: "GameBoy DMG-01",
-    priceRp: 15_000_000,
-    priceGems: 3,
+    priceRp: 2_500_000,
+    priceGems: 5,
     desc: "Palet hijau monokrom 1989 ala konsol genggam klasik",
     k: "#081810",
     bg: "#0f2a1d",
@@ -86,8 +86,8 @@ export const SKIN_PALETTES: Record<SkinId, Palette> = {
   cyberpunk_neon: {
     id: "cyberpunk_neon",
     name: "Glodok Cyber 2077",
-    priceRp: 25_000_000,
-    priceGems: 5,
+    priceRp: 4_500_000,
+    priceGems: 10,
     desc: "Neon magenta & cyan elektrik ala distrik malam",
     k: "#070414",
     bg: "#11092b",
@@ -113,8 +113,8 @@ export const SKIN_PALETTES: Record<SkinId, Palette> = {
   keraton_royal: {
     id: "keraton_royal",
     name: "Keraton Royal Emerald",
-    priceRp: 50_000_000,
-    priceGems: 10,
+    priceRp: 7_500_000,
+    priceGems: 20,
     desc: "Hijau zamrud & emas murni bangsawan Nusantara",
     k: "#090d0a",
     bg: "#122118",

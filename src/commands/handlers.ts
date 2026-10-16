@@ -16,6 +16,8 @@ import {
 } from "discord.js";
 import { CUSTOM_IDS } from "./definitions.ts";
 import {
+  COOP_PATUNGAN_COST_RP,
+  COOP_RESCUE_COST_RP,
   DAILY_COOLDOWN_MS,
   PASSIVE_COOLDOWN_MS,
   WORK_COOLDOWN_MS,
@@ -508,18 +510,19 @@ export async function handleChatInputCommand(interaction: ChatInputCommandIntera
     const guildId = interaction.guildId || "global_kota_mandiri";
     const user = getOrCreateUser(uid, uname);
     const coop = getOrCreateServerCoop(guildId);
-    const canPatungan = user.level >= 2 && user.pinjol_debt === 0 && user.balance >= 5_000_000;
-    const canRescue = user.pinjol_debt === 0 && user.balance >= 10_000_000;
+    const canPatungan = user.level >= 2 && user.pinjol_debt === 0 && user.balance >= COOP_PATUNGAN_COST_RP;
+    const canRescue = user.pinjol_debt === 0 && user.balance >= COOP_RESCUE_COST_RP;
+    const marketBonusPct = Math.max(0, coop.eco_level - 1) * 5;
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId(CUSTOM_IDS.BTN_KOPERASI_PATUNGAN)
-        .setLabel(user.level < 2 ? "🔒 Patungan (Butuh Lv.2)" : "🤝 Patungan Rp 5Jt")
+        .setLabel(user.level < 2 ? "🔒 Patungan (Butuh Lv.2)" : `🤝 Patungan (${formatRpShort(COOP_PATUNGAN_COST_RP)})`)
         .setStyle(canPatungan ? ButtonStyle.Success : ButtonStyle.Secondary)
         .setDisabled(!canPatungan),
       new ButtonBuilder()
         .setCustomId(CUSTOM_IDS.BTN_KOPERASI_TALANGI)
-        .setLabel("🛟 Tebus Lapak Warga (Rp 10Jt)")
+        .setLabel(`🛟 Tebus Warga (${formatRpShort(COOP_RESCUE_COST_RP)})`)
         .setStyle(canRescue ? ButtonStyle.Primary : ButtonStyle.Secondary)
         .setDisabled(!canRescue),
       new ButtonBuilder()
@@ -531,8 +534,10 @@ export async function handleChatInputCommand(interaction: ChatInputCommandIntera
     const attachment = new AttachmentBuilder(coopPng, { name: "karsa-koperasi.png" });
     const embed = new EmbedBuilder()
       .setColor(0x10b981)
-      .setTitle(`🤝 Koperasi Pasar • Kas ${formatRpShort(coop.pool_balance)}`)
-      .setDescription(`Kasmu **${formatRpShort(user.balance)}** • Warung Ditebus **${coop.rescued_count}**`)
+      .setTitle(`🤝 Koperasi Pasar Lv.${coop.eco_level} • Kas ${formatRpShort(coop.pool_balance)}`)
+      .setDescription(
+        `Kasmu **${formatRpShort(user.balance)}**  •  Warung Ditebus **${coop.rescued_count}**  •  Bonus Pasar **+${marketBonusPct}% Omzet**`
+      )
       .setImage("attachment://karsa-koperasi.png");
     await interaction.reply({
       embeds: [embed],
@@ -556,14 +561,14 @@ export async function handleChatInputCommand(interaction: ChatInputCommandIntera
       .setPlaceholder("👀 Pilih Tema Kartu Usaha...")
       .addOptions(
         Object.values(SKIN_PALETTES).map((s) => ({
-          label: `${s.name} (${s.priceRp === 0 ? "GRATIS" : `Rp${s.priceRp / 1_000_000}Jt`})`,
+          label: `${s.name} (${s.priceRp === 0 ? "GRATIS" : `${formatRpShort(s.priceRp)} / ${s.priceGems}💎`})`,
           description: s.desc,
           value: s.id,
         }))
       );
     const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
     await interaction.reply({
-      content: `🎨 **Pilih tema untuk melihat pratinjau** (Kasmu: **${formatRpShort(user.balance)}**):`,
+      content: `🎨 **Pilih tema kartu usaha** (Kasmu: **${formatRpShort(user.balance)}** • Permata: **${user.gems} 💎**):`,
       components: [row],
       flags: MessageFlags.Ephemeral,
     });
@@ -623,6 +628,23 @@ export async function handleButtonInteraction(interaction: ButtonInteraction): P
 
   if (!hasUserAccount(uid)) {
     await interaction.reply(buildOnboardingPrompt());
+    return;
+  }
+
+  // Ownership guard: prevent Player B from overwriting Player A's public portfolio card!
+  // Exception: SOS rescue buttons (`karsa:koperasi:talangi:<targetId>`) are meant for other players to click.
+  const isSosRescueClick = id === CUSTOM_IDS.BTN_KOPERASI_TALANGI && rawId.includes(":");
+  const msgTitle = interaction.message?.embeds?.[0]?.title || "";
+  if (
+    !isSosRescueClick &&
+    !interaction.message.flags.has(MessageFlags.Ephemeral) &&
+    msgTitle.startsWith("🏪 ") &&
+    !msgTitle.toLowerCase().startsWith(`🏪 ${uname.toLowerCase()} `)
+  ) {
+    await interaction.reply({
+      content: `🔒 Ini kartu usaha milik warga lain! Ketik \`/portfolio\` untuk membuka kartu usahamu sendiri.`,
+      flags: MessageFlags.Ephemeral,
+    });
     return;
   }
 
@@ -888,25 +910,28 @@ export async function handleButtonInteraction(interaction: ButtonInteraction): P
     await interaction.deferUpdate();
     const user = getOrCreateUser(uid, uname);
     const coop = getOrCreateServerCoop(guildId);
-    const canPatungan = user.level >= 2 && user.pinjol_debt === 0 && user.balance >= 5_000_000;
-    const canRescue = user.pinjol_debt === 0 && user.balance >= 10_000_000;
+    const canPatungan = user.level >= 2 && user.pinjol_debt === 0 && user.balance >= COOP_PATUNGAN_COST_RP;
+    const canRescue = user.pinjol_debt === 0 && user.balance >= COOP_RESCUE_COST_RP;
+    const marketBonusPct = Math.max(0, coop.eco_level - 1) * 5;
 
     const coopPng = renderCoopCard(coop);
     const attachment = new AttachmentBuilder(coopPng, { name: "karsa-koperasi.png" });
     const embed = new EmbedBuilder()
       .setColor(0x10b981)
-      .setTitle(`🤝 Koperasi Pasar • Kas ${formatRpShort(coop.pool_balance)}`)
-      .setDescription(`Kasmu **${formatRpShort(user.balance)}** • Warung Ditebus **${coop.rescued_count}**`)
+      .setTitle(`🤝 Koperasi Pasar Lv.${coop.eco_level} • Kas ${formatRpShort(coop.pool_balance)}`)
+      .setDescription(
+        `Kasmu **${formatRpShort(user.balance)}**  •  Warung Ditebus **${coop.rescued_count}**  •  Bonus Pasar **+${marketBonusPct}% Omzet**`
+      )
       .setImage("attachment://karsa-koperasi.png");
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId(CUSTOM_IDS.BTN_KOPERASI_PATUNGAN)
-        .setLabel(user.level < 2 ? "🔒 Patungan (Butuh Lv.2)" : "🤝 Patungan Rp 5Jt")
+        .setLabel(user.level < 2 ? "🔒 Patungan (Butuh Lv.2)" : `🤝 Patungan (${formatRpShort(COOP_PATUNGAN_COST_RP)})`)
         .setStyle(canPatungan ? ButtonStyle.Success : ButtonStyle.Secondary)
         .setDisabled(!canPatungan),
       new ButtonBuilder()
         .setCustomId(CUSTOM_IDS.BTN_KOPERASI_TALANGI)
-        .setLabel("🛟 Tebus Warga (Rp 10Jt)")
+        .setLabel(`🛟 Tebus Warga (${formatRpShort(COOP_RESCUE_COST_RP)})`)
         .setStyle(canRescue ? ButtonStyle.Primary : ButtonStyle.Secondary)
         .setDisabled(!canRescue),
       new ButtonBuilder()
@@ -925,7 +950,27 @@ export async function handleButtonInteraction(interaction: ButtonInteraction): P
 
   if (id === CUSTOM_IDS.BTN_KOPERASI_PATUNGAN || id === CUSTOM_IDS.BTN_KOPERASI_TALANGI) {
     const act = id === CUSTOM_IDS.BTN_KOPERASI_PATUNGAN ? "patungan" : "rescue";
-    const res = investOrRescueCoop(uid, uname, act, guildId);
+    const targetUserId = rawId.split(":")[1];
+    const caller = getOrCreateUser(uid, uname);
+
+    // If an indebted player clicks "🛟 Minta Tebus Warga" on their own sealed dashboard, post an SOS button for the server!
+    if (act === "rescue" && !targetUserId && (caller.is_seized === 1 || caller.pinjol_debt > 0) && caller.balance < COOP_RESCUE_COST_RP) {
+      const sosRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`${CUSTOM_IDS.BTN_KOPERASI_TALANGI}:${uid}`)
+          .setLabel(`🛟 Tebus Lapak ${uname} (${formatRpShort(COOP_RESCUE_COST_RP)})`)
+          .setStyle(ButtonStyle.Success)
+      );
+      await interaction.reply({
+        content:
+          `📢 **S.O.S. WARGA PASAR!** Lapak milik **${uname}** sedang disegel (Tunggakan **${formatRpShort(caller.pinjol_debt)}**).\n` +
+          `Warga yang membantu menebus mendapat **+25 Nama Baik, +2 💎 Permata, & Gelar Penebus Warga**!`,
+        components: [sosRow],
+      });
+      return;
+    }
+
+    const res = investOrRescueCoop(uid, uname, act, guildId, targetUserId);
     if (!res.ok) {
       await interaction.reply({ content: `${res.message}`, flags: MessageFlags.Ephemeral });
       return;
@@ -933,21 +978,29 @@ export async function handleButtonInteraction(interaction: ButtonInteraction): P
     await interaction.deferUpdate();
     const headline =
       act === "patungan"
-        ? `🤝 **Patungan +${formatRpShort(res.amount || 0)} Berhasil!**`
-        : `🛟 **Lapak Warga Berhasil Ditebus!** (+20 Nama Baik, +1 💎)`;
+        ? `🤝 **Patungan +${formatRpShort(res.amount || 0)} Berhasil!** (Kas Koperasi: ${formatRpShort(res.coop.pool_balance)})`
+        : `🛟 **Lapak ${res.rescuedUsername ? `@${res.rescuedUsername}` : "Warga"} Berhasil Ditebus!** (+25 Nama Baik, +2 💎)`;
     await sendPortfolioView(interaction, uid, uname, headline);
     return;
   }
 
-  if (id.startsWith(CUSTOM_IDS.BTN_SKIN_BUY_PREFIX)) {
-    const skinId = id.replace(CUSTOM_IDS.BTN_SKIN_BUY_PREFIX, "") as SkinId;
-    const res = equipOrBuySkin(uid, uname, skinId);
+  if (rawId.startsWith(CUSTOM_IDS.BTN_SKIN_BUY_PREFIX)) {
+    const rest = rawId.replace(CUSTOM_IDS.BTN_SKIN_BUY_PREFIX, "");
+    const [skinPart, modePart] = rest.split(":");
+    const skinId = (skinPart || "retro_gold") as SkinId;
+    const payWith = modePart === "gems" ? "gems" : "rp";
+    const res = equipOrBuySkin(uid, uname, skinId, payWith);
     if (!res.ok) {
       await interaction.reply({ content: `🎨 ${res.message}`, flags: MessageFlags.Ephemeral });
       return;
     }
-    await interaction.deferUpdate();
-    await sendPortfolioView(interaction, uid, uname, `🎨 ${res.message}`);
+    if (interaction.message.flags.has(MessageFlags.Ephemeral)) {
+      await interaction.deferUpdate();
+      await interaction.editReply({ content: `🎨 ${res.message}`, components: [] });
+    } else {
+      await interaction.deferUpdate();
+      await sendPortfolioView(interaction, uid, uname, `🎨 ${res.message}`);
+    }
     return;
   }
 
@@ -1005,18 +1058,28 @@ export async function handleStringSelectMenuInteraction(interaction: StringSelec
 
   const owned: string[] = JSON.parse(user.owned_skins || '["retro_gold"]');
   const isOwned = owned.includes(skinId);
-  const canBuy = isOwned || (user.balance >= skin.priceRp && user.pinjol_debt === 0 && user.is_seized === 0);
+  const canBuyRp = isOwned || (user.balance >= skin.priceRp && user.pinjol_debt === 0 && user.is_seized === 0);
+  const canBuyGems = !isOwned && user.gems >= skin.priceGems && user.pinjol_debt === 0 && user.is_seized === 0;
 
   const buyRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(`${CUSTOM_IDS.BTN_SKIN_BUY_PREFIX}${skinId}`)
-      .setLabel(isOwned ? `✅ Pasang ${skin.name}` : `💎 Beli — Rp${skin.priceRp / 1_000_000}Jt`)
-      .setStyle(canBuy ? ButtonStyle.Success : ButtonStyle.Secondary)
-      .setDisabled(!canBuy)
+      .setCustomId(`${CUSTOM_IDS.BTN_SKIN_BUY_PREFIX}${skinId}:rp`)
+      .setLabel(isOwned ? `✅ Pasang ${skin.name}` : `💰 Beli dgn Kas (${formatRpShort(skin.priceRp)})`)
+      .setStyle(canBuyRp ? ButtonStyle.Success : ButtonStyle.Secondary)
+      .setDisabled(!canBuyRp)
   );
+  if (!isOwned && skin.priceGems > 0) {
+    buyRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${CUSTOM_IDS.BTN_SKIN_BUY_PREFIX}${skinId}:gems`)
+        .setLabel(`💎 Beli dgn Permata (${skin.priceGems} 💎)`)
+        .setStyle(canBuyGems ? ButtonStyle.Primary : ButtonStyle.Secondary)
+        .setDisabled(!canBuyGems)
+    );
+  }
 
   await interaction.editReply({
-    content: `👀 **Pratinjau: ${skin.name}** • Kasmu **${formatRpShort(user.balance)}**`,
+    content: `👀 **Pratinjau: ${skin.name}** • Kasmu **${formatRpShort(user.balance)}** • Permata **${user.gems} 💎**`,
     files: [attachment],
     components: [buyRow],
   });
