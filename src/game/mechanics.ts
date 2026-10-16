@@ -115,10 +115,10 @@ export const PRESTIGE_RANKS: PrestigeRank[] = [
   { minLevel: 2, title: "BARISTA PASAR", perkNote: "Akses Koperasi Pasar Terbuka" },
   { minLevel: 3, title: "PERACIK UTAMA", perkNote: "Bonus Tip Pelanggan +5%" },
   { minLevel: 5, title: "JURAGAN KEDAI", perkNote: "Bonus Tip Pelanggan +10%" },
-  { minLevel: 8, title: "SAUDAGAR ROASTERY", perkNote: "Bonus Tip Pelanggan +15%" },
-  { minLevel: 12, title: "PELOPOR KOPERASI", perkNote: "Bonus Tip Pelanggan +20%" },
-  { minLevel: 16, title: "BANDAR BIJI NUSANTARA", perkNote: "Bonus Tip Pelanggan +25%" },
-  { minLevel: 20, title: "MAESTRO KOPI KARSA", perkNote: "Bonus Tip Pelanggan +30%" },
+  { minLevel: 8, title: "MASTER SANGRAI", perkNote: "Bonus Tip Pelanggan +15%" },
+  { minLevel: 12, title: "MITRA KOPERASI", perkNote: "Bonus Tip Pelanggan +20%" },
+  { minLevel: 16, title: "SAUDAGAR KOPI", perkNote: "Bonus Tip Pelanggan +25%" },
+  { minLevel: 20, title: "MAESTRO KARSA", perkNote: "Bonus Tip Pelanggan +30%" },
 ];
 
 export function getRankForLevel(level: number): PrestigeRank {

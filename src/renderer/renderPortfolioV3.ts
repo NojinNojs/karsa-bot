@@ -93,9 +93,18 @@ export function renderPortfolioV3(input: PortfolioV3Input): Buffer {
     lo: T.ink,
     pad: 2,
   });
+  const rawBadge = (user.badge || "WARUNG JUJUR").toUpperCase();
+  const cleanBadge =
+    rawBadge === "PEDAGANG PASAR"
+      ? "WARGA PASAR"
+      : rawBadge === "WARUNG DISEGEL"
+        ? "LAPAK DISEGEL"
+        : rawBadge === "BANGKIT KEMBALI"
+          ? "BANGKIT LAGI"
+          : rawBadge.slice(0, 13);
   drawPixelTextCentered(
     ctx,
-    (user.badge || "WARUNG JUJUR").slice(0, 13),
+    cleanBadge,
     52,
     67,
     90,

@@ -60,7 +60,7 @@ export function buildCooldownTag(lastAtMs: number, cooldownMs: number, readyLabe
   if (!lastAtMs || lastAtMs <= 0) return readyLabel;
   const readyAtMs = lastAtMs + cooldownMs;
   if (Date.now() >= readyAtMs) return readyLabel;
-  return `⏳ <t:${Math.ceil(readyAtMs / 1000)}:R>`;
+  return `Siap <t:${Math.ceil(readyAtMs / 1000)}:R>`;
 }
 
 type BizType = "kedai_kopi" | "brankas_darurat" | "saham_koperasi";

@@ -382,12 +382,12 @@ export function workShift(
     const newJobTitle = getRankForLevel(newLevel).title;
     const newBadge =
       user.is_seized === 1
-        ? "WARUNG DISEGEL"
+        ? "LAPAK DISEGEL"
         : newKarma >= 80
           ? "WARUNG JUJUR"
           : newKarma <= 35
             ? "CATATAN MERAH"
-            : "PEDAGANG PASAR";
+            : "WARGA PASAR";
 
     const bizzes = getUserBusinesses(userId);
     const nextQuest = computeProgressionQuest(
@@ -645,7 +645,7 @@ export function takeShortcutGambleOrPinjol(
 
     sqlite
       .query(
-        "UPDATE users SET balance = ?, karma = ?, pinjol_debt = ?, pinjol_strikes = pinjol_strikes + 1, is_seized = ?, badge = 'WARUNG DISEGEL', active_quest = 'Lunasi tagihan di /jalan-pintas untuk buka segel' WHERE id = ?"
+        "UPDATE users SET balance = ?, karma = ?, pinjol_debt = ?, pinjol_strikes = pinjol_strikes + 1, is_seized = ?, badge = 'LAPAK DISEGEL', active_quest = 'Bayar segel di tombol Bayar Segel / Talangan' WHERE id = ?"
       )
       .run(updatedBalance, updatedKarma, updatedDebt, isSeized, userId);
 
@@ -703,7 +703,7 @@ export function repayPinjolDebt(userId: string, username: string, customAmount?:
   const sealLifted = newDebt === 0;
 
   const tx = sqlite.transaction(() => {
-    const newBadge = sealLifted ? "BANGKIT KEMBALI" : "WARUNG DISEGEL";
+    const newBadge = sealLifted ? "BANGKIT LAGI" : "LAPAK DISEGEL";
     const newKarma = sealLifted ? Math.min(100, user.karma + 15) : Math.min(100, user.karma + 5);
     const bizzes = getUserBusinesses(userId);
     const nextQuest = sealLifted

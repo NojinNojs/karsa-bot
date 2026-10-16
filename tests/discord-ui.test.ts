@@ -7,6 +7,7 @@ import {
 } from "../src/commands/handlers.ts";
 import { getOrCreateUser, sqlite } from "../src/db/index.ts";
 import { DAILY_COOLDOWN_MS, WORK_COOLDOWN_MS } from "../src/db/index.ts";
+import { BUSINESS_CATALOG, PRESTIGE_RANKS } from "../src/game/mechanics.ts";
 
 const TEST_USERS = ["ui_lv1", "ui_lv2", "ui_debt", "ui_seized"] as const;
 
@@ -177,11 +178,25 @@ describe("KARSA Discord UI — State-Driven Button Logic & Payload Limits", () =
     expect(buildCooldownTag(0, WORK_COOLDOWN_MS, "Siap")).toBe("Siap");
     const justWorked = { lastAt: Date.now(), ms: WORK_COOLDOWN_MS };
     const tag = buildCooldownTag(justWorked.lastAt, justWorked.ms, "Siap");
-    expect(tag).toMatch(/^⏳ <t:\d+:R>$/);
+    expect(tag).toMatch(/^Siap <t:\d+:R>$/);
 
     const expired = buildCooldownTag(Date.now() - WORK_COOLDOWN_MS - 1000, WORK_COOLDOWN_MS, "Siap");
     expect(expired).toBe("Siap");
     expect(DAILY_COOLDOWN_MS).toBe(20 * 60 * 60 * 1000);
     expect(MessageFlags.Ephemeral).toBeDefined();
+  });
+
+  test("all Prestige Ranks, Badges, and Business Subtitles fit inside pixel-card bounding boxes without truncation", () => {
+    for (const rank of PRESTIGE_RANKS) {
+      expect(rank.title.length, `Rank title "${rank.title}" must be <= 14 chars`).toBeLessThanOrEqual(14);
+    }
+    const allBadges = ["WARGA BARU", "WARUNG JUJUR", "WARGA PASAR", "CATATAN MERAH", "LAPAK DISEGEL", "BANGKIT LAGI"];
+    for (const badge of allBadges) {
+      expect(badge.length, `Badge "${badge}" must be <= 13 chars`).toBeLessThanOrEqual(13);
+    }
+    for (const item of Object.values(BUSINESS_CATALOG)) {
+      const fullSub = `LV.9 • ${item.subtitle.toUpperCase()}`;
+      expect(fullSub.length, `Business subtitle "${fullSub}" must be <= 18 chars`).toBeLessThanOrEqual(18);
+    }
   });
 });
