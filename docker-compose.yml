@@ -1,0 +1,18 @@
+services:
+  karsa-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: karsa-bot:latest
+    container_name: karsa-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./output:/app/output
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

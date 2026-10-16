@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   buyOrUpgradeBusiness,
+  resetAllUserData,
   claimDailyBonus,
   claimPassiveIncome,
   equipOrBuySkin,

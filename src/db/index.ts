@@ -12,6 +12,11 @@ sqlite.exec("PRAGMA journal_mode = WAL;");
 sqlite.exec("PRAGMA synchronous = NORMAL;");
 sqlite.exec("PRAGMA foreign_keys = ON;");
 
+export const WORK_COOLDOWN_MS = 30 * 1000; // 30 detik antar-giliran seduh
+export const PASSIVE_COOLDOWN_MS = 5 * 60 * 1000; // 5 menit antar-klaim omzet
+export const DAILY_COOLDOWN_MS = 20 * 60 * 60 * 1000; // 20 jam
+export const DAILY_STREAK_RESET_MS = 48 * 60 * 60 * 1000; // 48 jam
+
 export interface UserRow {
   id: string;
   username: string;
@@ -25,11 +30,14 @@ export interface UserRow {
   karma: number;
   pinjol_debt: number;
   pinjol_strikes: number;
+  is_seized: number;
   coop_shares: number;
   skin_id: SkinId;
   owned_skins: string;
   active_quest: string;
+  daily_streak: number;
   last_work_at: number;
+  last_passive_at: number;
   last_daily_at: number;
   created_at: number;
 }
@@ -82,20 +90,23 @@ export function initDatabase(): void {
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL,
       job_title TEXT NOT NULL DEFAULT 'PERACIK KOPI',
-      badge TEXT NOT NULL DEFAULT 'WARUNG JUJUR',
+      badge TEXT NOT NULL DEFAULT 'WARGA BARU',
       level INTEGER NOT NULL DEFAULT 1,
       xp INTEGER NOT NULL DEFAULT 0,
-      balance INTEGER NOT NULL DEFAULT 12500000,
-      emergency_fund INTEGER NOT NULL DEFAULT 5000000,
-      gems INTEGER NOT NULL DEFAULT 3,
-      karma INTEGER NOT NULL DEFAULT 85,
+      balance INTEGER NOT NULL DEFAULT 500000,
+      emergency_fund INTEGER NOT NULL DEFAULT 0,
+      gems INTEGER NOT NULL DEFAULT 0,
+      karma INTEGER NOT NULL DEFAULT 60,
       pinjol_debt INTEGER NOT NULL DEFAULT 0,
       pinjol_strikes INTEGER NOT NULL DEFAULT 0,
+      is_seized INTEGER NOT NULL DEFAULT 0,
       coop_shares INTEGER NOT NULL DEFAULT 0,
       skin_id TEXT NOT NULL DEFAULT 'retro_gold',
       owned_skins TEXT NOT NULL DEFAULT '["retro_gold"]',
-      active_quest TEXT NOT NULL DEFAULT 'Patungan gerobak ke-2 di /koperasi',
+      active_quest TEXT NOT NULL DEFAULT 'Seduh 3 kloter di /work untuk naik ke Lv.2',
+      daily_streak INTEGER NOT NULL DEFAULT 0,
       last_work_at INTEGER NOT NULL DEFAULT 0,
+      last_passive_at INTEGER NOT NULL DEFAULT 0,
       last_daily_at INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL
     );
@@ -114,9 +125,9 @@ export function initDatabase(): void {
 
     CREATE TABLE IF NOT EXISTS server_coop (
       guild_id TEXT PRIMARY KEY,
-      pool_balance INTEGER NOT NULL DEFAULT 25000000,
-      eco_level INTEGER NOT NULL DEFAULT 4,
-      eco_health INTEGER NOT NULL DEFAULT 90,
+      pool_balance INTEGER NOT NULL DEFAULT 0,
+      eco_level INTEGER NOT NULL DEFAULT 1,
+      eco_health INTEGER NOT NULL DEFAULT 50,
       rescued_count INTEGER NOT NULL DEFAULT 0
     );
 
@@ -129,9 +140,33 @@ export function initDatabase(): void {
       created_at INTEGER NOT NULL
     );
   `);
+
+  // Safe migrations for existing databases
+  const alterCols = [
+    "ALTER TABLE users ADD COLUMN is_seized INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN daily_streak INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN last_passive_at INTEGER NOT NULL DEFAULT 0",
+  ];
+  for (const sql of alterCols) {
+    try {
+      sqlite.exec(sql);
+    } catch {
+      // Column already exists
+    }
+  }
 }
 
 initDatabase();
+
+export function resetAllUserData(): void {
+  const tx = sqlite.transaction(() => {
+    sqlite.exec("DELETE FROM ledger_logs;");
+    sqlite.exec("DELETE FROM user_businesses;");
+    sqlite.exec("DELETE FROM users;");
+    sqlite.exec("DELETE FROM server_coop;");
+  });
+  tx.immediate();
+}
 
 export function recordTransaction(userId: string, kind: string, amount: number, note: string): void {
   sqlite
@@ -139,29 +174,78 @@ export function recordTransaction(userId: string, kind: string, amount: number, 
     .run(userId, kind, amount, note, Date.now());
 }
 
-export function getOrCreateUser(userId: string, username: string): UserRow {
+export function hasUserAccount(userId: string): boolean {
+  const row = sqlite.query("SELECT id FROM users WHERE id = ?").get(userId) as { id: string } | null;
+  return row !== null;
+}
+
+export function computeProgressionQuest(user: UserRow, businesses: UserBusinessRow[]): string {
+  if (user.is_seized === 1 || user.pinjol_debt > 0) {
+    return "Lunasi tagihan di /jalan-pintas untuk buka segel";
+  }
+  const kedai = businesses.find((b) => b.biz_type === "kedai_kopi");
+  const brankas = businesses.find((b) => b.biz_type === "brankas_darurat");
+  const saham = businesses.find((b) => b.biz_type === "saham_koperasi");
+
+  if (user.level < 2) {
+    return "Seduh 3 kloter di /work untuk naik ke Lv.2";
+  }
+  if ((kedai?.level ?? 1) < 2) {
+    return "Upgrade Kedai Kopi ke Lv.2 di /bisnis";
+  }
+  if ((brankas?.level ?? 0) < 1) {
+    return "Buka Tabungan Emas Lv.1 di /bisnis";
+  }
+  if ((kedai?.level ?? 1) < 3) {
+    return "Upgrade Kedai Kopi ke Lv.3 di /bisnis";
+  }
+  if ((saham?.level ?? 0) < 1) {
+    return "Buka Saham Koperasi Lv.1 (Nama Baik min. 65)";
+  }
+  return "Patungan kas bersama atau tebus rekan di /koperasi";
+}
+
+export function registerNewUser(
+  userId: string,
+  username: string
+): { created: boolean; user: UserRow; businesses: UserBusinessRow[]; message: string } {
   const existing = sqlite.query("SELECT * FROM users WHERE id = ?").get(userId) as UserRow | null;
   if (existing) {
-    if (existing.username !== username && username) {
+    if (username && existing.username !== username) {
       sqlite.query("UPDATE users SET username = ? WHERE id = ?").run(username, userId);
       existing.username = username;
     }
-    return existing;
+    return {
+      created: false,
+      user: existing,
+      businesses: getUserBusinesses(userId),
+      message: "ℹ️ **Lapakmu sudah terdaftar di Pasar Malam KARSA!** Berikut buku kas terbarumu:",
+    };
   }
 
   const tx = sqlite.transaction(() => {
     const now = Date.now();
     sqlite
       .query(
-        `INSERT INTO users (id, username, job_title, badge, level, xp, balance, emergency_fund, gems, karma, skin_id, owned_skins, active_quest, created_at)
-         VALUES (?, ?, 'PERACIK KOPI', 'WARUNG JUJUR', 12, 1200, 48250000, 55000000, 3, 90, 'retro_gold', '["retro_gold"]', 'Patungan gerobak ke-2 di /koperasi', ?)`
+        `INSERT INTO users (
+          id, username, job_title, badge, level, xp, balance, emergency_fund,
+          gems, karma, pinjol_debt, pinjol_strikes, is_seized, coop_shares,
+          skin_id, owned_skins, active_quest, daily_streak,
+          last_work_at, last_passive_at, last_daily_at, created_at
+        ) VALUES (
+          ?, ?, 'PERINTIS LAPAK', 'WARGA BARU', 1, 0, 500000, 0,
+          0, 60, 0, 0, 0, 0,
+          'retro_gold', '["retro_gold"]', 'Seduh 3 kloter di /work untuk naik ke Lv.2', 0,
+          0, 0, 0, ?
+        )`
       )
       .run(userId, username || "WARGA", now);
 
+    // True zero-to-hero progression: Kedai Lv.1 open, Brankas & Saham Lv.0 locked!
     const starterBiz: Array<[string, string, number, number, number]> = [
-      ["kedai_kopi", "Kedai Kopi Karsa", 4, 64_500_000, 1_800_000],
-      ["brankas_darurat", "Tabungan Emas", 3, 55_000_000, 950_000],
-      ["saham_koperasi", "Koperasi Warga", 3, 27_000_000, 1_200_000],
+      ["kedai_kopi", "Kedai Kopi Karsa", 1, 1_500_000, 350_000],
+      ["brankas_darurat", "Tabungan Emas", 0, 0, 0],
+      ["saham_koperasi", "Koperasi Warga", 0, 0, 0],
     ];
     for (const [btype, bname, lvl, val, yld] of starterBiz) {
       sqlite
@@ -172,11 +256,26 @@ export function getOrCreateUser(userId: string, username: string): UserRow {
         .run(userId, btype, bname, lvl, val, yld);
     }
 
-    recordTransaction(userId, "STARTER", 48_250_000, "Buka lapak pertama Kedai Kopi Karsa");
+    recordTransaction(userId, "STARTER", 500_000, "Buka lapak pertama Kedai Kopi Karsa (Lv.1)");
   });
   tx.immediate();
 
-  return sqlite.query("SELECT * FROM users WHERE id = ?").get(userId) as UserRow;
+  const user = sqlite.query("SELECT * FROM users WHERE id = ?").get(userId) as UserRow;
+  const businesses = getUserBusinesses(userId);
+  return {
+    created: true,
+    user,
+    businesses,
+    message:
+      `🎉 **Lapak Kopi Pertamamu Resmi Dibuka, ${user.username}!**\n` +
+      `• **Modal Kas Awal:** Rp 500.000 | **Level:** Lv.1 Perintis Lapak\n` +
+      `• **Unit Usaha:** ☕ Kedai Kopi Lv.1 *(Aktif)* | 🔒 Tabungan Emas *(Butuh Kedai Lv.2)* | 🔒 Koperasi Warga *(Butuh Kedai Lv.3 & Nama Baik 65)*\n` +
+      `• **Langkah Pertama:** Klik **💼 Kerja (/work)** atau **☀️ Modal Harian (/daily)** di bawah untuk mulai mengumpulkan modal!`,
+  };
+}
+
+export function getOrCreateUser(userId: string, username: string): UserRow {
+  return registerNewUser(userId, username).user;
 }
 
 export function getUserBusinesses(userId: string): UserBusinessRow[] {
@@ -189,20 +288,65 @@ export function getOrCreateServerCoop(guildId = "global_kota_mandiri"): ServerCo
   const row = sqlite.query("SELECT * FROM server_coop WHERE guild_id = ?").get(guildId) as ServerCoopRow | null;
   if (row) return row;
   sqlite
-    .query("INSERT INTO server_coop (guild_id, pool_balance, eco_level, eco_health, rescued_count) VALUES (?, 85000000, 4, 92, 5)")
+    .query(
+      "INSERT INTO server_coop (guild_id, pool_balance, eco_level, eco_health, rescued_count) VALUES (?, 0, 1, 50, 0)"
+    )
     .run(guildId);
   return sqlite.query("SELECT * FROM server_coop WHERE guild_id = ?").get(guildId) as ServerCoopRow;
 }
 
-export function workShift(userId: string, username: string, choice: "ethical" | "corrupt", dilemmaIdx?: number) {
+export function formatCooldown(ms: number): string {
+  if (ms <= 0) return "0d";
+  const totalSeconds = Math.ceil(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}j ${minutes}m`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}d`;
+  }
+  return `${seconds}d`;
+}
+
+export function workShift(
+  userId: string,
+  username: string,
+  choice: "ethical" | "corrupt",
+  dilemmaIdx?: number,
+  opts?: { enforceCooldown?: boolean }
+) {
   const user = getOrCreateUser(userId, username);
-  const dilemma = WORK_DILEMMAS[(dilemmaIdx ?? Math.floor(Math.random() * WORK_DILEMMAS.length)) % WORK_DILEMMAS.length]!;
+  const now = Date.now();
+
+  if (opts?.enforceCooldown && user.last_work_at > 0 && now - user.last_work_at < WORK_COOLDOWN_MS) {
+    const remainingMs = WORK_COOLDOWN_MS - (now - user.last_work_at);
+    const cd = formatCooldown(remainingMs);
+    const dilemma = WORK_DILEMMAS[0]!;
+    return {
+      ok: false,
+      cooldownRemainingMs: remainingMs,
+      user,
+      dilemma,
+      deltaRp: 0,
+      karmaDelta: 0,
+      busted: false,
+      leveledUp: false,
+      message: `⏳ **Dapur Masih Ngebul!** Tunggu **${cd}** lagi sebelum menyeduh kloter berikutnya.`,
+    };
+  }
+
+  const dilemma =
+    WORK_DILEMMAS[(dilemmaIdx ?? Math.floor(Math.random() * WORK_DILEMMAS.length)) % WORK_DILEMMAS.length]!;
 
   let deltaRp = 0;
   let karmaDelta = 0;
   let xpDelta = 0;
   let busted = false;
   let message = "";
+  let leveledUp = false;
 
   const tx = sqlite.transaction(() => {
     if (choice === "ethical") {
@@ -211,7 +355,7 @@ export function workShift(userId: string, username: string, choice: "ethical" | 
       deltaRp = c.rewardRp + karmaBonus;
       karmaDelta = c.karmaDelta;
       xpDelta = c.xpDelta;
-      message = `${c.outcomeText}${karmaBonus > 0 ? ` (+Bonus Pelanggan Setia Rp${(karmaBonus / 1000).toLocaleString("id-ID")}K)` : ""}`;
+      message = `${c.outcomeText}${karmaBonus > 0 ? ` (+Bonus Pelanggan Setia Rp${(karmaBonus / 1000).toLocaleString("id-ID")}Rb)` : ""}`;
     } else {
       const c = dilemma.corruptChoice;
       karmaDelta = c.karmaDelta;
@@ -230,56 +374,143 @@ export function workShift(userId: string, username: string, choice: "ethical" | 
     const newKarma = Math.max(0, Math.min(100, user.karma + karmaDelta));
     const newXp = user.xp + xpDelta;
     const newLevel = Math.max(user.level, Math.floor(newXp / 100) + 1);
-    const newBadge = newKarma >= 80 ? "WARUNG JUJUR" : newKarma <= 35 ? "CATATAN MERAH" : "PEDAGANG PASAR";
+    leveledUp = newLevel > user.level;
+
+    const newJobTitle =
+      newLevel >= 5 ? "JURAGAN KEDAI" : newLevel >= 3 ? "PERACIK UTAMA" : newLevel >= 2 ? "BARISTA PASAR" : "PERINTIS LAPAK";
+    const newBadge =
+      user.is_seized === 1
+        ? "WARUNG DISEGEL"
+        : newKarma >= 80
+          ? "WARUNG JUJUR"
+          : newKarma <= 35
+            ? "CATATAN MERAH"
+            : "PEDAGANG PASAR";
+
+    const bizzes = getUserBusinesses(userId);
+    const nextQuest = computeProgressionQuest(
+      { ...user, level: newLevel, karma: newKarma },
+      bizzes
+    );
 
     sqlite
-      .query("UPDATE users SET balance = ?, karma = ?, xp = ?, level = ?, badge = ?, last_work_at = ? WHERE id = ?")
-      .run(newBalance, newKarma, newXp, newLevel, newBadge, Date.now(), userId);
+      .query(
+        "UPDATE users SET balance = ?, karma = ?, xp = ?, level = ?, job_title = ?, badge = ?, active_quest = ?, last_work_at = ? WHERE id = ?"
+      )
+      .run(newBalance, newKarma, newXp, newLevel, newJobTitle, newBadge, nextQuest, now, userId);
 
-    recordTransaction(userId, choice === "ethical" ? "WORK_ETHICAL" : "WORK_CORRUPT", deltaRp, `${dilemma.title}: ${message}`);
+    recordTransaction(
+      userId,
+      choice === "ethical" ? "WORK_ETHICAL" : "WORK_CORRUPT",
+      deltaRp,
+      `${dilemma.title}: ${message}`
+    );
   });
   tx.immediate();
 
   return {
+    ok: true,
+    cooldownRemainingMs: 0,
     user: getOrCreateUser(userId, username),
     dilemma,
     deltaRp,
     karmaDelta,
     busted,
+    leveledUp,
     message,
   };
 }
 
-export function buyOrUpgradeBusiness(userId: string, username: string, bizType: "kedai_kopi" | "brankas_darurat" | "saham_koperasi") {
+export function buyOrUpgradeBusiness(
+  userId: string,
+  username: string,
+  bizType: "kedai_kopi" | "brankas_darurat" | "saham_koperasi"
+) {
   const user = getOrCreateUser(userId, username);
   const cat = BUSINESS_CATALOG[bizType]!;
-  const existing = sqlite
-    .query("SELECT * FROM user_businesses WHERE user_id = ? AND biz_type = ?")
-    .get(userId, bizType) as UserBusinessRow | null;
+  const allBizzes = getUserBusinesses(userId);
+  const kedai = allBizzes.find((b) => b.biz_type === "kedai_kopi");
+  const existing = allBizzes.find((b) => b.biz_type === bizType) ?? null;
 
-  const nextLevel = (existing?.level ?? 0) + 1;
-  const upgradeCost = Math.round(cat.baseCost * Math.pow(1.25, nextLevel - 1));
-  const yieldBoost = Math.round(cat.baseYield * 0.35);
-
-  if (user.balance < upgradeCost) {
+  // Gate 1: Seizure Lock
+  if (user.is_seized === 1 || user.pinjol_debt > 0) {
     return {
       ok: false,
-      reason: `Kas belum cukup! Butuh **Rp${(upgradeCost / 1_000_000).toFixed(1)} Juta**, kas kamu **Rp${(user.balance / 1_000_000).toFixed(1)} Juta**.`,
+      reason:
+        "🚨 **Lapak Sedang Disegel / Memiliki Tunggakan!** Lunasi tagihan talangan terlebih dahulu di `/jalan-pintas` sebelum melakukan ekspansi usaha.",
+      user,
+    };
+  }
+
+  // Gate 2: Prerequisite Kedai Kopi Level
+  const kedaiLvl = kedai?.level ?? 1;
+  if (kedaiLvl < cat.requiredKedaiLevel) {
+    return {
+      ok: false,
+      reason: `🔒 **Syarat Belum Terpenuhi!** Naikin **Kedai Kopi ke Lv.${cat.requiredKedaiLevel}** terlebih dahulu sebelum membuka/menaikkan **${cat.name}** (Saat ini: Kedai Lv.${kedaiLvl}).`,
+      user,
+    };
+  }
+
+  // Gate 3: Prerequisite Karma / Nama Baik
+  if (user.karma < cat.requiredKarma) {
+    return {
+      ok: false,
+      reason: `🔒 **Syarat Nama Baik Belum Cukup!** Butuh **Nama Baik minimal ${cat.requiredKarma}/100** untuk membuka **${cat.name}** (Saat ini: ${user.karma}/100).`,
+      user,
+    };
+  }
+
+  const currentLevel = existing?.level ?? 0;
+  const nextLevel = currentLevel + 1;
+  const rawCost = Math.round(cat.baseCost * Math.pow(1.35, Math.max(0, nextLevel - 1)));
+  // Karma >= 80 grants 15% expansion discount
+  const upgradeCost = user.karma >= 80 ? Math.round(rawCost * 0.85) : rawCost;
+  const yieldBoost = currentLevel === 0 ? cat.baseYield : Math.round(cat.baseYield * 0.45);
+
+  if (user.balance < upgradeCost) {
+    const costLabel =
+      upgradeCost >= 1_000_000
+        ? `Rp${(upgradeCost / 1_000_000).toFixed(2)} Juta`
+        : `Rp${Math.round(upgradeCost / 1_000).toLocaleString("id-ID")} Rb`;
+    const balLabel =
+      user.balance >= 1_000_000
+        ? `Rp${(user.balance / 1_000_000).toFixed(2)} Juta`
+        : `Rp${Math.round(user.balance / 1_000).toLocaleString("id-ID")} Rb`;
+    return {
+      ok: false,
+      reason: `Kas belum cukup untuk **${cat.name} Lv.${nextLevel}**! Butuh **${costLabel}**, kas kamu saat ini **${balLabel}**.`,
       user,
     };
   }
 
   const tx = sqlite.transaction(() => {
-    sqlite.query("UPDATE users SET balance = balance - ?, karma = MIN(100, karma + 3) WHERE id = ?").run(upgradeCost, userId);
+    const emergencyAdd = bizType === "brankas_darurat" ? upgradeCost : 0;
+    sqlite
+      .query(
+        "UPDATE users SET balance = balance - ?, emergency_fund = emergency_fund + ?, karma = MIN(100, karma + 3) WHERE id = ?"
+      )
+      .run(upgradeCost, emergencyAdd, userId);
+
     if (existing) {
       sqlite
-        .query("UPDATE user_businesses SET level = ?, name = ?, value = value + ?, daily_yield = daily_yield + ? WHERE id = ?")
+        .query(
+          "UPDATE user_businesses SET level = ?, name = ?, value = value + ?, daily_yield = daily_yield + ? WHERE id = ?"
+        )
         .run(nextLevel, cat.name, upgradeCost, yieldBoost, existing.id);
     } else {
       sqlite
-        .query("INSERT INTO user_businesses (user_id, biz_type, name, level, value, daily_yield, ethical_mode) VALUES (?, ?, ?, 1, ?, ?, 1)")
-        .run(userId, bizType, cat.name, upgradeCost, cat.baseYield);
+        .query(
+          "INSERT INTO user_businesses (user_id, biz_type, name, level, value, daily_yield, ethical_mode) VALUES (?, ?, ?, ?, ?, ?, 1)"
+        )
+        .run(userId, bizType, cat.name, nextLevel, upgradeCost, yieldBoost);
     }
+
+    const updatedBizzes = getUserBusinesses(userId);
+    const updatedUser = sqlite.query("SELECT * FROM users WHERE id = ?").get(userId) as UserRow;
+    const nextQuest = computeProgressionQuest(updatedUser, updatedBizzes);
+    sqlite.query("UPDATE users SET active_quest = ? WHERE id = ?").run(nextQuest, userId);
+
     recordTransaction(userId, "BIZ_UPGRADE", -upgradeCost, `Ekspansi ${cat.name} ke Lv.${nextLevel}`);
   });
   tx.immediate();
@@ -293,20 +524,68 @@ export function buyOrUpgradeBusiness(userId: string, username: string, bizType: 
   };
 }
 
-export function claimPassiveIncome(userId: string, username: string) {
+export function claimPassiveIncome(
+  userId: string,
+  username: string,
+  opts?: { enforceCooldown?: boolean }
+) {
   const user = getOrCreateUser(userId, username);
+  const now = Date.now();
+
+  if (user.is_seized === 1) {
+    return {
+      ok: false,
+      reason: "🚨 **Lapak Sedang Disegel!** Omzet usaha tertahan sampai tunggakan talangan dilunasi di `/jalan-pintas`.",
+      gross: 0,
+      net: 0,
+      taxSaved: false,
+      user,
+    };
+  }
+
+  if (opts?.enforceCooldown && user.last_passive_at > 0 && now - user.last_passive_at < PASSIVE_COOLDOWN_MS) {
+    const remainingMs = PASSIVE_COOLDOWN_MS - (now - user.last_passive_at);
+    return {
+      ok: false,
+      reason: `⏳ **Setoran Omzet Belum Siap!** Tunggu **${formatCooldown(remainingMs)}** lagi sebelum mencairkan hasil usaha berikutnya.`,
+      gross: 0,
+      net: 0,
+      taxSaved: false,
+      user,
+    };
+  }
+
   const bizzes = getUserBusinesses(userId);
-  const gross = bizzes.reduce((acc, b) => acc + b.daily_yield, 0);
+  const gross = bizzes.reduce((acc, b) => acc + (b.level > 0 ? b.daily_yield : 0), 0);
+  if (gross <= 0) {
+    return {
+      ok: false,
+      reason: "⚠️ Belum ada unit usaha aktif yang menghasilkan omzet.",
+      gross: 0,
+      net: 0,
+      taxSaved: false,
+      user,
+    };
+  }
+
   const taxRate = user.karma >= 80 ? 0.05 : 0.2;
   const net = Math.round(gross * (1 - taxRate));
 
   const tx = sqlite.transaction(() => {
-    sqlite.query("UPDATE users SET balance = balance + ?, last_daily_at = ? WHERE id = ?").run(net, Date.now(), userId);
-    recordTransaction(userId, "PASSIVE_CLAIM", net, `Setoran usaha harian (Potongan sewa ${Math.round(taxRate * 100)}%)`);
+    sqlite
+      .query("UPDATE users SET balance = balance + ?, last_passive_at = ? WHERE id = ?")
+      .run(net, now, userId);
+    recordTransaction(
+      userId,
+      "PASSIVE_CLAIM",
+      net,
+      `Setoran usaha harian (Potongan sewa ${Math.round(taxRate * 100)}%)`
+    );
   });
   tx.immediate();
 
   return {
+    ok: true,
     gross,
     net,
     taxSaved: user.karma >= 80,
@@ -314,13 +593,18 @@ export function claimPassiveIncome(userId: string, username: string) {
   };
 }
 
-export function takeShortcutGambleOrPinjol(userId: string, username: string, mode: "pinjol" | "slot", guildId = "global_kota_mandiri") {
+export function takeShortcutGambleOrPinjol(
+  userId: string,
+  username: string,
+  mode: "pinjol" | "slot",
+  guildId = "global_kota_mandiri"
+) {
   const user = getOrCreateUser(userId, username);
 
   let cashLost = 0;
   let newDebtAdded = 0;
   let assetSeizedName = "Mesin Kopi Kedai";
-  let assetSeizedValue = 18_000_000;
+  let assetSeizedValue = 1_500_000;
   let narrative = "";
 
   const tx = sqlite.transaction(() => {
@@ -328,29 +612,39 @@ export function takeShortcutGambleOrPinjol(userId: string, username: string, mod
       const loanPrincipal = 15_000_000;
       const illegalFeeAndInterest = 28_500_000;
       newDebtAdded = loanPrincipal + illegalFeeAndInterest;
-      cashLost = Math.min(user.balance, 18_000_000);
+      cashLost = Math.max(250_000, Math.min(user.balance, 18_000_000));
       assetSeizedName = "Mesin Kopi Kedai";
       assetSeizedValue = 18_000_000;
       narrative =
         "Dana talangan kilat jatuh tempo! Bunga berbunga 8%/hari menguras laci kas dan penagih menyegel mesin kopi warungmu.";
     } else {
-      cashLost = Math.max(5_000_000, Math.round(user.balance * 0.65));
-      newDebtAdded = 19_500_000;
+      cashLost = Math.max(250_000, Math.round(user.balance * 0.65));
+      newDebtAdded = 21_500_000;
       assetSeizedName = "Gerobak & Stok Biji";
       assetSeizedValue = cashLost;
       narrative =
         "Modal belanja bahan baku habis di meja putaran malam! Warung gagal buka pagi ini dan gerobak disita penagih.";
     }
 
-    const updatedBalance = Math.max(500_000, user.balance - cashLost);
+    const updatedBalance = Math.max(100_000, user.balance - cashLost);
     const updatedKarma = Math.max(10, user.karma - 35);
     const updatedDebt = user.pinjol_debt + newDebtAdded;
+    const isSeized = updatedDebt >= 20_000_000 ? 1 : 0;
+
+    // Degrade Kedai Kopi by 1 level (min 1) on seizure, while emergency_fund remains 100% untouched!
+    if (isSeized === 1) {
+      sqlite
+        .query(
+          "UPDATE user_businesses SET level = MAX(1, level - 1), value = MAX(500000, value - 500000) WHERE user_id = ? AND biz_type = 'kedai_kopi'"
+        )
+        .run(userId);
+    }
 
     sqlite
       .query(
-        "UPDATE users SET balance = ?, karma = ?, pinjol_debt = ?, pinjol_strikes = pinjol_strikes + 1, badge = 'WARUNG DISEGEL' WHERE id = ?"
+        "UPDATE users SET balance = ?, karma = ?, pinjol_debt = ?, pinjol_strikes = pinjol_strikes + 1, is_seized = ?, badge = 'WARUNG DISEGEL', active_quest = 'Lunasi tagihan di /jalan-pintas untuk buka segel' WHERE id = ?"
       )
-      .run(updatedBalance, updatedKarma, updatedDebt, userId);
+      .run(updatedBalance, updatedKarma, updatedDebt, isSeized, userId);
 
     sqlite
       .query("UPDATE server_coop SET eco_health = MAX(20, eco_health - 5) WHERE guild_id = ?")
@@ -373,15 +667,109 @@ export function takeShortcutGambleOrPinjol(userId: string, username: string, mod
   };
 }
 
-export function investOrRescueCoop(userId: string, username: string, action: "patungan" | "rescue", guildId = "global_kota_mandiri") {
+export function repayPinjolDebt(userId: string, username: string, customAmount?: number) {
+  const user = getOrCreateUser(userId, username);
+  if (user.pinjol_debt <= 0) {
+    return {
+      ok: false,
+      paidRp: 0,
+      remainingDebt: 0,
+      sealLifted: false,
+      message: "✅ **Lapakmu Bebas Tunggakan!** Tidak ada tagihan talangan yang perlu dibayar.",
+      user,
+    };
+  }
+
+  const totalLiquid = user.balance + user.emergency_fund;
+  if (totalLiquid <= 0) {
+    return {
+      ok: false,
+      paidRp: 0,
+      remainingDebt: user.pinjol_debt,
+      sealLifted: false,
+      message: "⚠️ **Kas & Brankas Kosong!** Jalankan `/work` atau `/daily` terlebih dahulu untuk mengumpulkan uang cicilan.",
+      user,
+    };
+  }
+
+  const targetPay = customAmount ? Math.min(customAmount, user.pinjol_debt) : user.pinjol_debt;
+  const actualPay = Math.min(totalLiquid, targetPay);
+  const fromCash = Math.min(user.balance, actualPay);
+  const fromEmergency = Math.max(0, actualPay - fromCash);
+  const newDebt = Math.max(0, user.pinjol_debt - actualPay);
+  const sealLifted = newDebt === 0;
+
+  const tx = sqlite.transaction(() => {
+    const newBadge = sealLifted ? "BANGKIT KEMBALI" : "WARUNG DISEGEL";
+    const newKarma = sealLifted ? Math.min(100, user.karma + 15) : Math.min(100, user.karma + 5);
+    const bizzes = getUserBusinesses(userId);
+    const nextQuest = sealLifted
+      ? computeProgressionQuest({ ...user, pinjol_debt: 0, is_seized: 0, karma: newKarma }, bizzes)
+      : `Sisa tagihan Rp${(newDebt / 1_000_000).toFixed(1)} Jt di /jalan-pintas`;
+
+    sqlite
+      .query(
+        "UPDATE users SET balance = balance - ?, emergency_fund = emergency_fund - ?, pinjol_debt = ?, is_seized = ?, karma = ?, badge = ?, active_quest = ? WHERE id = ?"
+      )
+      .run(fromCash, fromEmergency, newDebt, sealLifted ? 0 : 1, newKarma, newBadge, nextQuest, userId);
+
+    recordTransaction(
+      userId,
+      "REPAY_PINJOL",
+      -actualPay,
+      sealLifted ? "Pelunasan penuh tagihan & pembukaan segel lapak" : "Cicilan tagihan talangan"
+    );
+  });
+  tx.immediate();
+
+  const updated = getOrCreateUser(userId, username);
+  return {
+    ok: true,
+    paidRp: actualPay,
+    remainingDebt: newDebt,
+    sealLifted,
+    message: sealLifted
+      ? `🎉 **SEGEL LAPAK RESMI DIBUKA!** Kamu melunasi **Rp${(actualPay / 1_000_000).toFixed(2)} Juta** hingga tuntas. Gerobak dan Kedai Kopi kembali beroperasi penuh!`
+      : `💸 **Cicilan Tagihan Diterima!** Terbayar **Rp${(actualPay / 1_000_000).toFixed(2)} Juta** (Sisa tagihan: **Rp${(newDebt / 1_000_000).toFixed(2)} Juta**). Terus seduh kopi di \`/work\` sampai segel terbuka!`,
+    user: updated,
+  };
+}
+
+export function investOrRescueCoop(
+  userId: string,
+  username: string,
+  action: "patungan" | "rescue",
+  guildId = "global_kota_mandiri"
+) {
   const user = getOrCreateUser(userId, username);
   const coop = getOrCreateServerCoop(guildId);
   const amount = action === "patungan" ? 5_000_000 : 10_000_000;
 
+  if (action === "patungan") {
+    if (user.level < 2 && user.balance < 5_000_000) {
+      return {
+        ok: false,
+        message:
+          "🔒 **Syarat Belum Terpenuhi!** Capai **Level 2** terlebih dahulu dengan menyeduh kopi di `/work` sebelum menyetor patungan Koperasi Pasar.",
+        user,
+        coop,
+      };
+    }
+    if (user.pinjol_debt > 0 || user.is_seized === 1) {
+      return {
+        ok: false,
+        message:
+          "🔒 **Tunggakan Aktif!** Lunasi tagihan talanganmu terlebih dahulu sebelum menyetor modal ke Koperasi Pasar.",
+        user,
+        coop,
+      };
+    }
+  }
+
   if (user.balance < amount) {
     return {
       ok: false,
-      message: `Kas belum cukup (Butuh Rp${(amount / 1_000_000).toFixed(0)} Juta).`,
+      message: `Kas belum cukup untuk aksi koperasi ini (Butuh **Rp${(amount / 1_000_000).toFixed(0)} Juta**, Kas: **Rp${(user.balance / 1_000_000).toFixed(2)} Juta**).`,
       user,
       coop,
     };
@@ -390,20 +778,26 @@ export function investOrRescueCoop(userId: string, username: string, action: "pa
   const tx = sqlite.transaction(() => {
     if (action === "patungan") {
       sqlite
-        .query("UPDATE users SET balance = balance - ?, coop_shares = coop_shares + ?, karma = MIN(100, karma + 8) WHERE id = ?")
+        .query(
+          "UPDATE users SET balance = balance - ?, coop_shares = coop_shares + ?, karma = MIN(100, karma + 8) WHERE id = ?"
+        )
         .run(amount, amount, userId);
       sqlite
-        .query("UPDATE server_coop SET pool_balance = pool_balance + ?, eco_health = MIN(100, eco_health + 3) WHERE guild_id = ?")
-        .run(amount, guildId);
+        .query(
+          "UPDATE server_coop SET pool_balance = pool_balance + ?, eco_level = MIN(5, 1 + CAST((pool_balance + ?) / 20000000 AS INTEGER)), eco_health = MIN(100, eco_health + 5) WHERE guild_id = ?"
+        )
+        .run(amount, amount, guildId);
       sqlite
-        .query("UPDATE user_businesses SET value = value + ?, daily_yield = daily_yield + 450000 WHERE user_id = ? AND biz_type = 'saham_koperasi'")
+        .query(
+          "UPDATE user_businesses SET level = MAX(1, level), value = value + ?, daily_yield = daily_yield + 450000 WHERE user_id = ? AND biz_type = 'saham_koperasi'"
+        )
         .run(amount, userId);
       recordTransaction(userId, "COOP_INVEST", -amount, "Iuran Koperasi Warga");
     } else {
       const debtCleared = Math.max(15_000_000, user.pinjol_debt);
       sqlite
         .query(
-          "UPDATE users SET balance = balance - ?, pinjol_debt = 0, karma = MIN(100, karma + 20), gems = gems + 1, badge = 'WARUNG JUJUR', active_quest = 'Gerobak warga berhasil ditebus! (+1 Gem)' WHERE id = ?"
+          "UPDATE users SET balance = balance - ?, pinjol_debt = 0, is_seized = 0, karma = MIN(100, karma + 20), gems = gems + 1, badge = 'WARUNG JUJUR', active_quest = 'Gerobak warga berhasil ditebus! (+1 Gem)' WHERE id = ?"
         )
         .run(amount, userId);
       sqlite
@@ -411,7 +805,12 @@ export function investOrRescueCoop(userId: string, username: string, action: "pa
           "UPDATE server_coop SET pool_balance = pool_balance + ?, rescued_count = rescued_count + 1, eco_health = MIN(100, eco_health + 6) WHERE guild_id = ?"
         )
         .run(amount, guildId);
-      recordTransaction(userId, "COOP_RESCUE", -amount, `Tebus gerobak warga senilai Rp${(debtCleared / 1_000_000).toFixed(1)} Juta`);
+      recordTransaction(
+        userId,
+        "COOP_RESCUE",
+        -amount,
+        `Tebus gerobak warga senilai Rp${(debtCleared / 1_000_000).toFixed(1)} Juta`
+      );
     }
   });
   tx.immediate();
@@ -427,6 +826,10 @@ export function investOrRescueCoop(userId: string, username: string, action: "pa
 export function equipOrBuySkin(userId: string, username: string, skinId: SkinId) {
   const user = getOrCreateUser(userId, username);
   const skin = SKIN_PALETTES[skinId];
+  if (!skin) {
+    return { ok: false, bought: false, message: "Tema kartu tidak ditemukan.", user };
+  }
+
   const owned: string[] = JSON.parse(user.owned_skins || '["retro_gold"]');
 
   if (owned.includes(skinId)) {
@@ -439,11 +842,20 @@ export function equipOrBuySkin(userId: string, username: string, skinId: SkinId)
     };
   }
 
+  if (user.is_seized === 1 || user.pinjol_debt > 0) {
+    return {
+      ok: false,
+      bought: false,
+      message: "🚨 **Lapak Sedang Disegel!** Lunasi tunggakan terlebih dahulu sebelum membeli tema kartu baru.",
+      user,
+    };
+  }
+
   if (user.balance < skin.priceRp) {
     return {
       ok: false,
       bought: false,
-      message: `Kas belum cukup untuk membeli **${skin.name}** (Harga: Rp${(skin.priceRp / 1_000_000).toFixed(0)} Juta, Kas: Rp${(user.balance / 1_000_000).toFixed(1)} Juta).`,
+      message: `Kas belum cukup untuk membeli **${skin.name}** (Harga: Rp${(skin.priceRp / 1_000_000).toFixed(0)} Juta, Kas: Rp${(user.balance / 1_000_000).toFixed(2)} Juta).`,
       user,
     };
   }
@@ -463,24 +875,6 @@ export function equipOrBuySkin(userId: string, username: string, skinId: SkinId)
     message: `Selamat! Kamu berhasil membeli & memasang skin **${skin.name}**!`,
     user: getOrCreateUser(userId, username),
   };
-}
-
-const DAILY_COOLDOWN_MS = 20 * 60 * 60 * 1000;
-
-export function formatCooldown(ms: number): string {
-  if (ms <= 0) return "0d";
-  const totalSeconds = Math.ceil(ms / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (hours > 0) {
-    return `${hours}j ${minutes}m`;
-  }
-  if (minutes > 0) {
-    return `${minutes}m ${seconds}d`;
-  }
-  return `${seconds}d`;
 }
 
 export function claimDailyBonus(userId: string, username: string): DailyBonusResult {
@@ -507,26 +901,27 @@ export function claimDailyBonus(userId: string, username: string): DailyBonusRes
       streak: currentStreak,
       remainingMs,
       cooldownText,
-      message: `Sabar dulu, Juragan! Suntikan modal harian koperasi baru bisa diklaim lagi dalam **${cooldownText}** (Streak Hari ke-${currentStreak}).`,
+      message: `⏳ **Sabar dulu, Juragan!** Uang belanja pasar harian baru bisa diambil lagi dalam **${cooldownText}** (Streak Hari ke-${currentStreak}).`,
       user,
     };
   }
 
-  const streak = prevClaims + 1;
-  const streakBonus = Math.min(streak, 7) * 350_000;
-  const karmaBonusRp = user.karma >= 80 ? 500_000 : 0;
-  const rewardRp = 2_500_000 + streakBonus + karmaBonusRp;
+  const isExpired = lastLog ? now - lastLog.created_at > DAILY_STREAK_RESET_MS : false;
+  const streak = isExpired ? 1 : prevClaims + 1;
+  const streakBonus = Math.min(streak, 7) * 150_000;
+  const karmaBonusRp = user.karma >= 80 ? 250_000 : 0;
+  const rewardRp = 500_000 + streakBonus + karmaBonusRp;
   const karmaBonus = 2;
 
   const tx = sqlite.transaction(() => {
     sqlite
-      .query("UPDATE users SET balance = balance + ?, karma = MIN(100, karma + ?), last_daily_at = ? WHERE id = ?")
-      .run(rewardRp, karmaBonus, now, userId);
+      .query("UPDATE users SET balance = balance + ?, karma = MIN(100, karma + ?), daily_streak = ?, last_daily_at = ? WHERE id = ?")
+      .run(rewardRp, karmaBonus, streak, now, userId);
     recordTransaction(
       userId,
       "DAILY_MODAL",
       rewardRp,
-      `Modal Harian Koperasi (Hari ke-${streak}${karmaBonusRp > 0 ? " + Bonus Warung Jujur" : ""})`
+      `Uang Belanja Harian Pasar (Hari ke-${streak}${karmaBonusRp > 0 ? " + Bonus Reputasi" : ""})`
     );
   });
   tx.immediate();
@@ -539,43 +934,10 @@ export function claimDailyBonus(userId: string, username: string): DailyBonusRes
     streak,
     remainingMs: 0,
     cooldownText: "0d",
-    message: `Modal Harian Koperasi cair **Rp${(rewardRp / 1_000_000).toFixed(2)} Juta**! (Streak Hari ke-${streak}${karmaBonusRp > 0 ? " + Bonus Karma Jujur Rp500K" : ""}, +${karmaBonus} Karma)`,
+    message: `☀️ **Uang Belanja Harian Cair Rp${Math.round(rewardRp / 1_000).toLocaleString("id-ID")} Rb!** (Streak Hari ke-${streak}, +${karmaBonus} Reputasi Pasar)`,
     user: updatedUser,
   };
 }
-
-const FALLBACK_NPC_MERCHANTS: Array<Omit<LeaderboardEntry, "rank">> = [
-  {
-    userId: "npc_raka_roastery",
-    username: "RAKA ROASTERY",
-    badge: "WARUNG JUJUR",
-    level: 11,
-    karma: 94,
-    balance: 43_500_000,
-    businessValue: 125_000_000,
-    netWorth: 168_500_000,
-  },
-  {
-    userId: "npc_bu_dina",
-    username: "BU DINA",
-    badge: "WARUNG JUJUR",
-    level: 10,
-    karma: 90,
-    balance: 34_000_000,
-    businessValue: 108_000_000,
-    netWorth: 142_000_000,
-  },
-  {
-    userId: "npc_pak_hendra",
-    username: "PAK HENDRA",
-    badge: "PEDAGANG PASAR",
-    level: 8,
-    karma: 78,
-    balance: 26_500_000,
-    businessValue: 92_000_000,
-    netWorth: 118_500_000,
-  },
-];
 
 export function getTopLeaderboard(limit = 5): LeaderboardEntry[] {
   const safeLimit = Math.max(1, limit);
@@ -589,27 +951,16 @@ export function getTopLeaderboard(limit = 5): LeaderboardEntry[] {
          u.karma AS karma,
          u.balance AS balance,
          COALESCE(SUM(b.value), 0) AS businessValue,
-         (u.balance + COALESCE(SUM(b.value), 0)) AS netWorth
+         (u.balance + u.emergency_fund + COALESCE(SUM(b.value), 0)) AS netWorth
        FROM users u
        LEFT JOIN user_businesses b ON u.id = b.user_id
        GROUP BY u.id
-       ORDER BY (u.balance + COALESCE(SUM(b.value), 0)) DESC, u.karma DESC
+       ORDER BY (u.balance + u.emergency_fund + COALESCE(SUM(b.value), 0)) DESC, u.karma DESC
        LIMIT ?`
     )
     .all(safeLimit) as Array<Omit<LeaderboardEntry, "rank">>;
 
-  const combined: Array<Omit<LeaderboardEntry, "rank">> = [...rows];
-  if (combined.length < 3) {
-    for (const npc of FALLBACK_NPC_MERCHANTS) {
-      if (combined.length >= Math.max(3, safeLimit)) break;
-      if (!combined.some((entry) => entry.userId === npc.userId)) {
-        combined.push({ ...npc });
-      }
-    }
-    combined.sort((a, b) => b.netWorth - a.netWorth || b.karma - a.karma);
-  }
-
-  return combined.slice(0, Math.max(safeLimit, Math.min(3, combined.length))).map((entry, idx) => ({
+  return rows.map((entry, idx) => ({
     rank: idx + 1,
     ...entry,
   }));

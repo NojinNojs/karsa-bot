@@ -8,6 +8,8 @@ import {
   drawDivider,
   drawInsetSlot,
   exportUpscaledPng,
+  fmtJt,
+  fmtRp,
   R,
   SKIN_THEMES_V3,
   WARM_KOPI_THEME,
@@ -21,16 +23,13 @@ import { drawSpriteV3, type SpriteV3Name } from "./spritesV3.ts";
 import type { ServerCoopRow, UserBusinessRow, UserRow } from "../db/index.ts";
 import { BUSINESS_CATALOG } from "../game/mechanics.ts";
 
+export { fmtJt, fmtRp };
+
 export interface PortfolioV3Input {
   user: UserRow;
   businesses: UserBusinessRow[];
   coop: ServerCoopRow;
   overrideSkin?: string;
-}
-
-function fmtJt(val: number): string {
-  const jt = val / 1_000_000;
-  return `RP ${jt.toFixed(1).replace(".", ",")} JT`;
 }
 
 export function renderPortfolioV3(input: PortfolioV3Input): Buffer {
@@ -110,7 +109,7 @@ export function renderPortfolioV3(input: PortfolioV3Input): Buffer {
   drawBevelPanel(ctx, 12, 94, 136, 36, T, { pad: 6 });
   drawPixelText(ctx, "LACI KAS", 18, 100, T.muted, T.ink, 1);
   drawSpriteV3(ctx, "koin_12", 18, 111, 1);
-  drawPixelText(ctx, fmtJt(user.balance), 33, 114, T.amberHi, T.ink, 1);
+  drawPixelText(ctx, fmtRp(user.balance), 33, 114, T.amberHi, T.ink, 1);
 
   drawInsetSlot(ctx, 102, 109, 40, 15, T);
   drawSpriteV3(ctx, "bintang_12", 105, 111, 1);
@@ -144,7 +143,7 @@ export function renderPortfolioV3(input: PortfolioV3Input): Buffer {
   drawBevelPanel(ctx, 154, 40, 218, 138, T, { pad: 6 });
   const totalNw = businesses.reduce((a, b) => a + b.value, 0) + user.balance;
   drawPixelText(ctx, "LAPAK & SIMPANAN", 162, 46, T.crema, T.ink, 1);
-  drawPixelTextRight(ctx, `HARTA ${fmtJt(totalNw)}`, 364, 46, T.greenHi, T.ink, 1);
+  drawPixelTextRight(ctx, `HARTA ${fmtRp(totalNw)}`, 364, 46, T.greenHi, T.ink, 1);
   drawDivider(ctx, 160, 56, 206, T);
 
   const spriteByType: Record<string, SpriteV3Name> = {
@@ -153,29 +152,57 @@ export function renderPortfolioV3(input: PortfolioV3Input): Buffer {
     saham_koperasi: "celengan_warga_16",
   };
 
+  const lockedTitleByType: Record<string, string> = {
+    kedai_kopi: "KEDAI KOPI",
+    brankas_darurat: "TABUNGAN EMAS",
+    saham_koperasi: "KOPERASI WARGA",
+  };
+
+  const lockRequirementByType: Record<string, string> = {
+    kedai_kopi: "BUKA DI /BISNIS",
+    brankas_darurat: "SYARAT: KEDAI LV.2",
+    saham_koperasi: "SYARAT: KEDAI LV.3",
+  };
+
   businesses.slice(0, 3).forEach((b, idx) => {
     const ry = 61 + idx * 38; // y = 61, 99, 137 (each h=34, gap=4px, bottom=171 -> 7px pad inside 178)
     const cat = BUSINESS_CATALOG[b.biz_type];
+    const isLocked = b.level <= 0;
+
     drawBevelPanel(ctx, 160, ry, 206, 34, T, {
-      fill: T.surfaceAlt,
-      hi: T.highlight,
+      fill: isLocked ? T.inset : T.surfaceAlt,
+      hi: isLocked ? T.shadow : T.highlight,
       lo: T.shadow,
       pad: 4,
     });
 
     // 24x24 Icon Slot (x=165, y=ry+5)
     drawInsetSlot(ctx, 165, ry + 5, 24, 24, T, { dither: true });
-    drawSpriteV3(ctx, spriteByType[b.biz_type] || "gerobak_kopi_16", 169, ry + 9, 1);
+    const iconName: SpriteV3Name = isLocked
+      ? "segel_gembok_16"
+      : (spriteByType[b.biz_type] || "gerobak_kopi_16");
+    drawSpriteV3(ctx, iconName, 169, ry + 9, 1);
 
-    const title = (b.name || "Kedai Kopi Karsa").toUpperCase().slice(0, 16);
-    const sub = (cat ? cat.subtitle : "3 peracik").toUpperCase().slice(0, 17);
-    const valStr = fmtJt(b.value);
-    const yldStr = (cat ? cat.yieldLabel(b.level, b.daily_yield) : "+12% BAGI").toUpperCase();
+    if (isLocked) {
+      const lockedTitle =
+        lockedTitleByType[b.biz_type] ??
+        (b.name || cat?.name || "USAHA").toUpperCase().slice(0, 15);
+      const reqStr = lockRequirementByType[b.biz_type] ?? "BUKA DI /BISNIS";
+      drawPixelText(ctx, lockedTitle, 195, ry + 7, T.redHi, T.ink, 1);
+      drawPixelText(ctx, reqStr, 195, ry + 19, T.amber, null, 1);
+      drawPixelTextRight(ctx, fmtRp(0), 360, ry + 7, T.muted, T.ink, 1);
+      drawPixelTextRight(ctx, "TERKUNCI", 360, ry + 19, T.muted, null, 1);
+    } else {
+      const title = (b.name || cat?.name || "Kedai Kopi Karsa").toUpperCase().slice(0, 18);
+      const sub = (cat ? `LV.${b.level} • ${cat.subtitle}` : `LV.${b.level} • 3 peracik`).toUpperCase().slice(0, 20);
+      const valStr = fmtRp(b.value);
+      const yldStr = (cat ? cat.yieldLabel(b.level, b.daily_yield) : "+12% BAGI").toUpperCase();
 
-    drawPixelText(ctx, title, 195, ry + 7, T.crema, T.ink, 1);
-    drawPixelText(ctx, sub, 195, ry + 19, T.muted, null, 1);
-    drawPixelTextRight(ctx, valStr, 360, ry + 7, T.amberHi, T.ink, 1);
-    drawPixelTextRight(ctx, yldStr, 360, ry + 19, T.greenHi, null, 1);
+      drawPixelText(ctx, title, 195, ry + 7, T.crema, T.ink, 1);
+      drawPixelText(ctx, sub, 195, ry + 19, T.muted, null, 1);
+      drawPixelTextRight(ctx, valStr, 360, ry + 7, T.amberHi, T.ink, 1);
+      drawPixelTextRight(ctx, yldStr, 360, ry + 19, T.greenHi, null, 1);
+    }
   });
 
   // 5. Bottom Footer Bar (x=12, y=184, w=360, h=20) — exact 6px gap below columns
@@ -247,7 +274,7 @@ export function renderAzabV3(input: AzabV3Input): Buffer {
   // L2: Debt Box (x=12, y=94, w=136, h=36)
   drawBevelPanel(ctx, 12, 94, 136, 36, T, { pad: 6 });
   drawPixelText(ctx, "TUNGGAKAN BUNGA", 18, 100, T.muted, T.ink, 1);
-  drawPixelText(ctx, fmtJt(input.totalDebt), 18, 114, T.amberHi, T.ink, 1);
+  drawPixelText(ctx, fmtRp(input.totalDebt), 18, 114, T.amberHi, T.ink, 1);
 
   // L3: Reputation Box (x=12, y=136, w=136, h=42)
   drawBevelPanel(ctx, 12, 136, 136, 42, T, { pad: 6 });
@@ -279,7 +306,7 @@ export function renderAzabV3(input: AzabV3Input): Buffer {
       icon: "koin_12",
       t: "BUNGA HARIAN 8%",
       d: "KAS WARUNG TERKURAS",
-      v: `-${fmtJt(input.cashLost)}`,
+      v: `-${fmtRp(input.cashLost)}`,
     },
     {
       icon: "segel_gembok_16",
@@ -339,27 +366,59 @@ export function renderCoopV3(coop: ServerCoopRow): Buffer {
   drawSpriteV3(ctx, "koin_12", 18, 17, 1);
   drawPixelText(ctx, "KARSA • KOPERASI PEDAGANG", 34, 20, T.amberHi, T.ink, 1);
 
+  const isHealthy = coop.eco_health >= 80;
   drawBevelPanel(ctx, 250, 15, 116, 16, T, {
-    fill: T.greenLo,
-    hi: T.greenHi,
+    fill: isHealthy ? T.greenLo : T.amberLo,
+    hi: isHealthy ? T.greenHi : T.amberHi,
     lo: T.ink,
     pad: 2,
   });
-  drawPixelTextCentered(ctx, `PASAR SEHAT ${coop.eco_health}%`, 250, 15, 116, 16, T.crema, T.ink, 1);
+  drawPixelTextCentered(
+    ctx,
+    isHealthy ? `PASAR SEHAT ${coop.eco_health}%` : "PASAR RINTISAN",
+    250,
+    15,
+    116,
+    16,
+    T.crema,
+    T.ink,
+    1
+  );
+
+  let parsedContributors: Record<string, number> = {};
+  try {
+    const rawJson = (coop as ServerCoopRow & { contributors_json?: string }).contributors_json;
+    parsedContributors = JSON.parse(rawJson || "{}") as Record<string, number>;
+  } catch {
+    parsedContributors = {};
+  }
+  const sortedContributors = Object.entries(parsedContributors)
+    .filter(([, amount]) => typeof amount === "number" && amount > 0)
+    .sort((a, b) => b[1] - a[1]);
 
   // Left Column
   drawBevelPanel(ctx, 12, 40, 136, 48, T, { pad: 6 });
   drawInsetSlot(ctx, 18, 46, 28, 28, T, { dither: true });
   drawSpriteV3(ctx, "celengan_warga_16", 24, 52, 1);
   drawPixelText(ctx, "KAS BERSAMA", 52, 47, T.muted, T.ink, 1);
-  drawPixelText(ctx, fmtJt(coop.pool_balance), 52, 58, T.amberHi, T.ink, 1);
+  drawPixelText(ctx, fmtRp(coop.pool_balance), 52, 58, T.amberHi, T.ink, 1);
   drawBevelPanel(ctx, 52, 68, 90, 14, T, {
     fill: T.greenLo,
     hi: T.greenHi,
     lo: T.ink,
     pad: 2,
   });
-  drawPixelTextCentered(ctx, "14 LAPAK AKTIF", 52, 68, 90, 14, T.crema, T.ink, 1);
+  drawPixelTextCentered(
+    ctx,
+    `${sortedContributors.length} MITRA AKTIF`,
+    52,
+    68,
+    90,
+    14,
+    T.crema,
+    T.ink,
+    1
+  );
 
   drawBevelPanel(ctx, 12, 94, 136, 36, T, { pad: 6 });
   drawPixelText(ctx, "GEROBAK DITEBUS", 18, 100, T.muted, T.ink, 1);
@@ -368,7 +427,7 @@ export function renderCoopV3(coop: ServerCoopRow): Buffer {
 
   drawBevelPanel(ctx, 12, 136, 136, 42, T, { pad: 6 });
   drawPixelText(ctx, "KETAHANAN PASAR", 18, 142, T.muted, T.ink, 1);
-  drawPixelTextRight(ctx, `${coop.eco_health}/100`, 142, 142, T.greenHi, T.ink, 1);
+  drawPixelTextRight(ctx, `${coop.eco_health}/100`, 142, 142, isHealthy ? T.greenHi : T.amberHi, T.ink, 1);
   drawInsetSlot(ctx, 18, 152, 122, 10, T, { pad: 2 });
   const segs = Math.round(Math.max(0, Math.min(100, coop.eco_health)) / 10);
   for (let i = 0; i < 10; i++) {
@@ -380,36 +439,51 @@ export function renderCoopV3(coop: ServerCoopRow): Buffer {
       R(ctx, sx, 154, 10, 6, T.insetLo);
     }
   }
-  drawPixelText(ctx, "SUBSIDI AKTIF", 18, 165, T.greenHi, T.ink, 1);
-  drawPixelTextRight(ctx, "SEWA -15%", 142, 165, T.amberHi, T.ink, 1);
+  const marketLabel = isHealthy ? "PASAR SEHAT" : "PASAR RINTISAN";
+  const rentLabel = isHealthy ? "SEWA -15%" : "SEWA NORMAL";
+  drawPixelText(ctx, marketLabel, 18, 165, isHealthy ? T.greenHi : T.amber, T.ink, 1);
+  drawPixelTextRight(ctx, rentLabel, 142, 165, T.amberHi, T.ink, 1);
 
   // Right Column: Top Contributors
   drawBevelPanel(ctx, 154, 40, 218, 138, T, { pad: 6 });
   drawPixelText(ctx, "PENYUMBANG UTAMA", 162, 46, T.crema, T.ink, 1);
-  drawPixelTextRight(ctx, "DIVIDEN +12%", 364, 46, T.greenHi, T.ink, 1);
+  drawPixelTextRight(ctx, `LV.${coop.eco_level} • BAGI HASIL`, 364, 46, T.greenHi, T.ink, 1);
   drawDivider(ctx, 160, 56, 206, T);
 
-  const leaders: Array<{ icon: SpriteV3Name; t: string; d: string; v: string; b: string }> = [
-    { icon: "barista_16", t: "1. AQSAN", d: "KEDAI KOPI KARSA", v: "RP 27,0 JT", b: "PELOPOR" },
-    { icon: "emas_batangan_16", t: "2. RAKA", d: "ROASTERY PASAR", v: "RP 18,5 JT", b: "AKTIF" },
-    { icon: "celengan_warga_16", t: "3. DINA", d: "WARUNG TEH & ROTI", v: "RP 14,0 JT", b: "AKTIF" },
+  const rankIcons: readonly SpriteV3Name[] = [
+    "barista_16",
+    "emas_batangan_16",
+    "celengan_warga_16",
   ];
 
-  leaders.forEach((l, idx) => {
+  for (let idx = 0; idx < 3; idx++) {
     const ry = 61 + idx * 38;
+    const contrib = sortedContributors[idx];
+    const isEmpty = !contrib;
+
     drawBevelPanel(ctx, 160, ry, 206, 34, T, {
-      fill: T.surfaceAlt,
-      hi: T.highlight,
+      fill: isEmpty ? T.inset : T.surfaceAlt,
+      hi: isEmpty ? T.shadow : T.highlight,
       lo: T.shadow,
       pad: 4,
     });
     drawInsetSlot(ctx, 165, ry + 5, 24, 24, T, { dither: true });
-    drawSpriteV3(ctx, l.icon, 169, ry + 9, 1);
-    drawPixelText(ctx, l.t, 195, ry + 7, T.crema, T.ink, 1);
-    drawPixelText(ctx, l.d, 195, ry + 19, T.muted, null, 1);
-    drawPixelTextRight(ctx, l.v, 360, ry + 7, T.amberHi, T.ink, 1);
-    drawPixelTextRight(ctx, l.b, 360, ry + 19, T.greenHi, null, 1);
-  });
+    drawSpriteV3(ctx, rankIcons[idx] ?? "celengan_warga_16", 169, ry + 9, 1);
+
+    if (isEmpty) {
+      drawPixelText(ctx, `${idx + 1}. LOWONG`, 195, ry + 7, T.muted, T.ink, 1);
+      drawPixelText(ctx, "BELUM ADA PATUNGAN", 195, ry + 19, T.muted, null, 1);
+      drawPixelTextRight(ctx, "RP 0", 360, ry + 7, T.muted, T.ink, 1);
+      drawPixelTextRight(ctx, "KOSONG", 360, ry + 19, T.muted, null, 1);
+    } else {
+      const [uid, amount] = contrib;
+      const label = uid.toUpperCase().slice(0, 12);
+      drawPixelText(ctx, `${idx + 1}. ${label}`, 195, ry + 7, T.crema, T.ink, 1);
+      drawPixelText(ctx, "MITRA KOPERASI", 195, ry + 19, T.muted, null, 1);
+      drawPixelTextRight(ctx, fmtRp(amount), 360, ry + 7, T.amberHi, T.ink, 1);
+      drawPixelTextRight(ctx, idx === 0 ? "PELOPOR" : "AKTIF", 360, ry + 19, T.greenHi, null, 1);
+    }
+  }
 
   // Footer
   drawBevelPanel(ctx, 12, 184, 360, 20, T, { pad: 6 });

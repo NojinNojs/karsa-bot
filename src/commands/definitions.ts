@@ -7,6 +7,9 @@ import {
  * Custom IDs untuk seluruh Button & StringSelectMenu di pasar malam KARSA.
  */
 export const CUSTOM_IDS = {
+  // Onboarding & Registrasi Lapak
+  BTN_START_LAPAK: "btn_start_lapak",
+
   // Tombol navigasi utama dari Portfolio Card
   BTN_WORK: "btn_work",
   BTN_BISNIS: "btn_bisnis",
@@ -36,6 +39,7 @@ export const CUSTOM_IDS = {
   // Talangan Kilat & Meja Putar Belakang (/jalan-pintas)
   BTN_PINJOL_AMBIL: "btn_pinjol_ambil",
   BTN_JUDOL_SPIN: "btn_judol_spin",
+  BTN_REPAY_DEBT: "btn_repay_debt",
   BTN_PINJOL_LUNASI: "btn_pinjol_lunasi",
   BTN_TOBAT_FINANSIAL: "btn_tobat_finansial",
 
@@ -52,7 +56,7 @@ export const CUSTOM_IDS = {
 export const startCommand = new SlashCommandBuilder()
   .setName("start")
   .setDescription(
-    "🪪 Buka lapak warung kopi baru + terima modal tunai Rp 10 juta & simpanan darurat."
+    "🪪 Daftar lapak pertama dari nol: Lv.1 Perintis, Modal Kas Rp 500.000 & Kedai Kopi Lv.1."
   );
 
 export const helpCommand = new SlashCommandBuilder()

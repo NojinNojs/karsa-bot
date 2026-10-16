@@ -13,7 +13,8 @@
     "test": "bun test",
     "test:render": "bun run src/test-render.ts",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:reset": "bun run src/index.ts --reset-db"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.80",

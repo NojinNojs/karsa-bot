@@ -584,3 +584,34 @@ export const SKIN_THEMES_V3: Record<string, KarsaTheme> = {
   cyberpunk_neon: CYBER_KOPI_THEME,
   keraton_royal: KERATON_KOPI_THEME,
 };
+
+/**
+ * Formats integer Rupiah values for pixel-art cards using uppercase FONT_5X7 tokens:
+ * - 0           -> "RP 0"
+ * - 150_000     -> "RP 150 RB"
+ * - 500_000     -> "RP 500 RB"
+ * - 1_500_000   -> "RP 1,5 JT"
+ * - 2_000_000   -> "RP 2 JT"
+ */
+export function fmtRp(val: number): string {
+  if (!Number.isFinite(val) || Math.round(val) === 0) {
+    return "RP 0";
+  }
+  const sign = val < 0 ? "-" : "";
+  const abs = Math.abs(Math.round(val));
+
+  if (abs >= 1_000_000) {
+    const jt = abs / 1_000_000;
+    const formatted = jt.toFixed(1).replace(/\.0$/, "").replace(".", ",");
+    return `${sign}RP ${formatted} JT`;
+  }
+
+  if (abs >= 1_000) {
+    const rb = Math.round(abs / 1_000);
+    return `${sign}RP ${rb} RB`;
+  }
+
+  return `${sign}RP ${abs}`;
+}
+
+export const fmtJt = fmtRp;

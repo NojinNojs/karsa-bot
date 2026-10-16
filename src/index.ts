@@ -256,6 +256,18 @@ export async function runDemoMode(): Promise<void> {
 export async function main(): Promise<void> {
   const args = new Set(process.argv.slice(2));
   const isDemoFlag = args.has("--demo") || args.has("-d");
+  const isResetDbFlag = args.has("--reset-db");
+
+  if (isResetDbFlag) {
+    const dbMod = await loadModule("./db/index.ts");
+    if (typeof dbMod.resetAllUserData === "function") {
+      dbMod.resetAllUserData();
+      console.log("🧹 [DB] Seluruh statistik pemain & kas koperasi telah direset ke nol!");
+    }
+    if (!args.has("--start")) {
+      return;
+    }
+  }
 
   const token = process.env.DISCORD_TOKEN?.trim() ?? "";
   const clientId = process.env.DISCORD_CLIENT_ID?.trim() ?? "";
