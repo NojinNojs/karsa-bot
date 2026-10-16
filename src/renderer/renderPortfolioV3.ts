@@ -417,7 +417,7 @@ export function renderCoopV3(coop: ServerCoopRow): Buffer {
   drawSpriteV3(ctx, "celengan_warga_16", 24, 52, 1);
   drawPixelText(ctx, "KAS BERSAMA", 52, 47, T.muted, T.ink, 1);
   drawPixelText(ctx, fmtRp(coop.pool_balance), 52, 58, T.amberHi, T.ink, 1);
-  drawBevelPanel(ctx, 52, 68, 90, 14, T, {
+  drawBevelPanel(ctx, 52, 67, 90, 15, T, {
     fill: T.greenLo,
     hi: T.greenHi,
     lo: T.ink,
@@ -427,9 +427,9 @@ export function renderCoopV3(coop: ServerCoopRow): Buffer {
     ctx,
     `${sortedContributors.length} MITRA AKTIF`,
     52,
-    68,
+    67,
     90,
-    14,
+    15,
     T.crema,
     T.ink,
     1
@@ -441,7 +441,7 @@ export function renderCoopV3(coop: ServerCoopRow): Buffer {
   drawPixelText(ctx, `${coop.rescued_count} WARUNG SELAMAT`, 38, 114, T.greenHi, T.ink, 1);
 
   drawBevelPanel(ctx, 12, 136, 136, 42, T, { pad: 6 });
-  drawPixelText(ctx, "KETAHANAN PASAR", 18, 142, T.muted, T.ink, 1);
+  drawPixelText(ctx, "KONDISI PASAR", 18, 142, T.muted, T.ink, 1);
   drawPixelTextRight(ctx, `${coop.eco_health}/100`, 142, 142, isHealthy ? T.greenHi : T.amberHi, T.ink, 1);
   drawInsetSlot(ctx, 18, 152, 122, 10, T, { pad: 2 });
   const segs = Math.round(Math.max(0, Math.min(100, coop.eco_health)) / 10);
@@ -454,7 +454,7 @@ export function renderCoopV3(coop: ServerCoopRow): Buffer {
       R(ctx, sx, 154, 10, 6, T.insetLo);
     }
   }
-  const marketLabel = isHealthy ? "PASAR SEHAT" : "PASAR RINTISAN";
+  const marketLabel = isHealthy ? "SEHAT" : "RINTISAN";
   const rentLabel = isHealthy ? "SEWA -15%" : "SEWA NORMAL";
   drawPixelText(ctx, marketLabel, 18, 165, isHealthy ? T.greenHi : T.amber, T.ink, 1);
   drawPixelTextRight(ctx, rentLabel, 142, 165, T.amberHi, T.ink, 1);

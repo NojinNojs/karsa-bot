@@ -76,7 +76,7 @@ export function renderLeaderboardV3(
   drawSpriteV3(ctx, "celengan_warga_16", 24, 52, 1);
   drawPixelText(ctx, "KAS KOPERASI", 52, 47, T.muted, T.ink, 1);
   drawPixelText(ctx, fmtRp(coop.pool_balance), 52, 58, T.amberHi, T.ink, 1);
-  drawBevelPanel(ctx, 52, 68, 90, 14, T, {
+  drawBevelPanel(ctx, 52, 67, 90, 15, T, {
     fill: T.greenLo,
     hi: T.greenHi,
     lo: T.ink,
@@ -86,9 +86,9 @@ export function renderLeaderboardV3(
     ctx,
     "GOTONG ROYONG",
     52,
-    68,
+    67,
     90,
-    14,
+    15,
     T.crema,
     T.ink,
     1
@@ -125,7 +125,7 @@ export function renderLeaderboardV3(
     }
   }
   const isHealthy = coop.eco_health >= 80;
-  const marketLabel = isHealthy ? "PASAR SEHAT" : "PASAR RINTISAN";
+  const marketLabel = isHealthy ? "SEHAT" : "RINTISAN";
   const rentLabel = isHealthy ? "SEWA -15%" : "SEWA NORMAL";
   drawPixelText(ctx, marketLabel, 18, 165, isHealthy ? T.greenHi : T.amber, T.ink, 1);
   drawPixelTextRight(ctx, rentLabel, 142, 165, T.amberHi, T.ink, 1);
@@ -161,9 +161,17 @@ export function renderLeaderboardV3(
       drawPixelTextRight(ctx, "LV.-", 360, ry + 19, T.muted, null, 1);
     } else {
       const uname = (entry.username || "PEDAGANG").toUpperCase().slice(0, 12);
-      const badge = (entry.badge || "WARUNG JUJUR").toUpperCase().slice(0, 12);
+      const rawBadge = (entry.badge || "WARUNG JUJUR").toUpperCase();
+      const badge =
+        rawBadge === "PEDAGANG PASAR"
+          ? "WARGA PASAR"
+          : rawBadge === "WARUNG DISEGEL"
+            ? "LAPAK DISEGEL"
+            : rawBadge === "BANGKIT KEMBALI"
+              ? "BANGKIT LAGI"
+              : rawBadge.slice(0, 13);
       const titleStr = `${idx + 1}. ${uname}`;
-      const subStr = `${badge} • BAIK ${entry.karma}`;
+      const subStr = `${badge} • ${entry.karma}/100`;
       const nwStr = fmtRp(entry.netWorth);
       const lvStr = `LV.${entry.level}`;
 
