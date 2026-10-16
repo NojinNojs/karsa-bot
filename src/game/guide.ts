@@ -4,6 +4,7 @@ import {
   ButtonStyle,
   EmbedBuilder,
 } from "discord.js";
+import { getCurrentMarketEvent, PRESTIGE_RANKS } from "./mechanics.ts";
 
 export type GuideCategoryId = "dasar" | "usaha" | "koperasi" | "bahaya";
 
@@ -167,13 +168,25 @@ export function buildHelpEmbedsAndComponents(
       ? normalized
       : "dasar";
   const section = GUIDE_SECTIONS[activeId];
+  const { event, nextChangeUnixSec } = getCurrentMarketEvent();
 
   const embed = new EmbedBuilder()
     .setColor(section.color)
     .setTitle(section.title)
     .setDescription(section.description)
     .addFields(section.fields)
-    .setFooter({ text: section.footer });
+    .addFields({
+      name: "🌤️ Cuaca Pasar Sekarang (Live)",
+      value: `${event.title} — ${event.goldBonusNote}\n**Berganti otomatis <t:${nextChangeUnixSec}:R>** (tepat pada <t:${nextChangeUnixSec}:t>)`,
+      inline: false,
+    })
+    .addFields({
+      name: "🎖️ Tangga Jabatan Pedagang (Prestige)",
+      value: PRESTIGE_RANKS.map((r) => `**Lv.${r.minLevel}+** ${r.title}`).join(" • "),
+      inline: false,
+    })
+    .setFooter({ text: section.footer })
+    .setTimestamp();
 
   const categoryOrder: GuideCategoryId[] = [
     "dasar",

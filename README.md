@@ -90,7 +90,56 @@ flowchart TD
 
 ---
 
-## 3. Daftar 11 Perintah (*Slash Commands*)
+## 3. Fitur Discord Native UX
+
+**KARSA** memanfaatkan fitur asli (*native capabilities*) **discord.js v14** agar interaksi di dalam kanal tetap bersih, responsif, dan bebas *spam*:
+
+- **In-Place Dashboard Editing (`deferUpdate()` & `editReply()`)**: Saat pemain menekan tombol navigasi, mengganti bab panduan `/help`, mencairkan omzet, menaikkan level usaha, atau mengganti *live preview* tema di `/shop`, bot memperbarui pesan yang sedang terbuka secara langsung (*in-place*) tanpa mengirim pesan baru yang memenuhi *chat*.
+- **Ephemeral Private Guards (`MessageFlags.Ephemeral`)**: Peringatan syarat progresi (*Progression Gate*), pengingat waktu *cooldown*, buku pedoman `/help`, serta transaksi sensitif (seperti rincian Talangan Kilat dan pelunasan segel) dikirim secara privat (*Hanya kamu yang dapat melihat ini*) sehingga privasi pemain terjaga.
+- **Dynamic Discord Timestamps (`<t:UNIX:R>`)**: Seluruh hitung mundur *cooldown* (`/work`, `/daily`, `/bisnis`) dan jadwal pergantian cuaca pasar ditampilkan menggunakan penanda waktu dinamis Discord (mis. *dalam 24 detik* / *dalam 42 menit*) yang bergerak otomatis mengikuti zona waktu perangkat masing-masing pemain.
+- **Rich Embeds + Kanvas Piksel (`attachment://` `1152×648` PNG)**: Kartu visual hasil render *in-memory* disematkan langsung di dalam **Discord Rich Embed** (`EmbedBuilder`) sebagai lampiran `attachment://`, memadukan estetika piksel *retro* dengan teks informasi terstruktur dan indikator acara pasar aktif.
+- **Modal Popups (`ModalBuilder` & `TextInputBuilder`)**: Selain tombol nominal cepat, pemain dapat membuka formulir *popup* interaktif di klien Discord untuk mengetik **nominal Rupiah bebas** saat mencicil tagihan pinjol (**Cicil Pinjol Nominal Bebas**) maupun menyetor kas gotong royong (**Patungan Koperasi Nominal Bebas**).
+
+---
+
+## 4. Sistem Replayability: Dilema Pasar, Cuaca Makro & Gelar Prestise
+
+### A. 12 Dilema Pasar Malam (`/work`)
+Setiap giliran seduh kopi (`/work`) menyajikan **1 dari 12 skenario dilema pasar malam** yang kontekstual dengan kehidupan pedagang kaki lima & warung kopi Nusantara (mulai dari pilihan biji Gayo asli vs campuran jagung sangrai, stiker titipan di meja kasir, pembukuan kas akhir bulan, gula aren asli vs pemanis buatan, ketebalan *cup* plastik, stiker QRIS palsu, lonjakan pesanan saat hujan deras malam minggu, oknum minta jatah kopi, tren es kopi susu gula aren, mesin *grinder* macet, *endorse* kreator kuliner, hingga kualitas es batu kristal):
+- **Pilihan Jujur (*Ethical Choice*)**: Memberikan keuntungan kas stabil, **+XP tinggi**, dan menaikkan skor **Nama Baik (Karma)**.
+- **Pilihan Pintas (*Corrupt Choice*)**: Menawarkan margin kas berlipat ganda, namun memicu risiko **Sidak Pasar / Komplain Warga (`auditChance`)** yang dapat menjatuhkan denda Rupiah serta memangkas skor Nama Baik.
+
+### B. 6 Cuaca & Ekonomi Makro Pasar Dinamis (`MARKET_EVENTS`)
+Kondisi ekonomi dan cuaca di Pasar Malam KARSA **berputar otomatis setiap 1 jam** (dilengkapi penanda `<t:UNIX:R>` menuju pergantian berikutnya) dan memengaruhi pengali omzet seduh (`workMultiplier`), peluang sidak (`auditModifier`), serta bagi hasil unit usaha (`bizYieldMultiplier`):
+
+| Cuaca / Kondisi Makro Pasar | Efek Ekonomi & Lapak |
+| :--- | :--- |
+| 📉 **IHSG & Rupiah Goyang** | Harga bahan baku naik, namun nilai **Tabungan Emas / Usaha +20%** |
+| 🌧️ **Hujan Deras Malam Minggu** | Kopi panas laris manis (**+25% Omzet Seduh**) |
+| ☀️ **Malam Gajian Kantor** | Antrean ojol & pekerja mengular (**+20% Omzet Seduh**) |
+| 🏛️ **Pejabat Bikin Aturan Ngawur** | Retribusi ketat & risiko **Sidak Pasar +15%** |
+| 🌾 **Panen Raya Gayo** | Harga biji kopi turun dari hulu (**+15% Margin Bersih**) |
+| 🔥 **Festival Kuliner Pasar Malam** | Keramaian puncak, **Koperasi & Unit Usaha Bagi Bonus (+20% Yield)** |
+
+### C. 10 Gelar Prestise Pedagang (`PRESTIGE_RANKS`)
+Seiring bertambahnya pengalaman (`XP`) dan naiknya level pemain, gelar kehormatan pedagang pada Kartu Catatan Usaha dan Papan Peringkat meningkat melalui **10 jenjang prestise** dari **`PERINTIS LAPAK` (Lv.1)** hingga **`SULTAN KOPERASI NUSANTARA` (Lv.25)**:
+
+| Level Minimum | Gelar Prestise (`PRESTIGE_RANKS`) | Peran di Pasar Malam |
+| :---: | :--- | :--- |
+| **Lv. 1** | **PERINTIS LAPAK** | Pedagang baru yang merintis gerobak kopi pertama |
+| **Lv. 2** | **PERACIK KOPI MALAM** | Mulai dikenal pelanggan ronda & ojol malam |
+| **Lv. 4** | **JURAGAN SEDUH** | Racikan kopi stabil dengan antrean pelanggan tetap |
+| **Lv. 6** | **PENGGERAK WARUNG** | Unit usaha berkembang & aktif di lingkar pasar |
+| **Lv. 8** | **SAUDAGAR PASAR** | Arus kas kuat dan disegani pemasok bahan baku |
+| **Lv. 11** | **BANDAR BIJI GAYO** | Pengendali pasokan biji kopi unggulan satu blok pasar |
+| **Lv. 14** | **PEMANGKU KOPERASI** | Tulang punggung likuiditas & talangan warga server |
+| **Lv. 17** | **MAESTRO NIAGA** | Pengusaha matang dengan portofolio usaha berlapis |
+| **Lv. 21** | **KOMISARIS PASAR MALAM** | Tokoh utama penentu arah ekonomi pasar malam |
+| **Lv. 25** | **SULTAN KOPERASI NUSANTARA** | Puncak prestise tertinggi pedagang & pelindung koperasi |
+
+---
+
+## 5. Daftar 11 Perintah (*Slash Commands*)
 
 | Perintah | Deskripsi Singkat |
 | :--- | :--- |
@@ -99,16 +148,16 @@ flowchart TD
 | `/portfolio` | Mencetak Kartu Catatan Usaha (`1152×648` PNG) lengkap dengan 2 baris tombol aksi cepat. |
 | `/card` | Alias cepat dari `/portfolio` untuk melihat kartu milik sendiri atau pedagang lain. |
 | `/daily` | Mengambil uang belanja pasar harian dengan bonus *streak* bertingkat hingga 7+ hari. |
-| `/work` | Menjalankan giliran seduh kopi & menghadapi pilihan belanja bahan baku di pasar. |
+| `/work` | Menjalankan giliran seduh kopi & menghadapi 12 pilihan dilema belanja bahan baku di pasar. |
 | `/bisnis` | Menaikkan level Kedai Kopi, membuka Brankas Emas & Saham Koperasi, serta mencairkan omzet. |
-| `/koperasi` | Menyetor iuran kas koperasi server atau menebus gerobak warga yang terkena segel. |
-| `/leaderboard` | Mencetak kartu visual **Papan Peringkat** 5 pedagang terkaya beserta kesehatan pasar server. |
+| `/koperasi` | Menyetor iuran kas koperasi server (tombol cepat / modal nominal bebas) atau menebus gerobak warga yang disegel. |
+| `/leaderboard` | Mencetak kartu visual **Papan Peringkat** pedagang terkaya beserta cuaca ekonomi pasar server. |
 | `/shop` | Mencoba *live preview* dan mengganti tema visual Kartu Usaha (*Retro Gold*, *GameBoy*, *Glodok Cyber*, *Keraton*). |
-| `/jalan-pintas` | Mengakses fasilitas Talangan Kilat (bunga 8%/hari), Meja Putar Belakang, atau **Melunasi Tagihan Segel**. |
+| `/jalan-pintas` | Mengakses fasilitas Talangan Kilat (bunga 8%/hari), Meja Putar Belakang, atau **Melunasi / Mencicil Tagihan Segel**. |
 
 ---
 
-## 4. Menjalankan dengan Docker (Rekomendasi untuk Laptop & Migrasi VPS)
+## 6. Menjalankan dengan Docker (Rekomendasi untuk Laptop & Migrasi VPS)
 
 Proyek ini sudah dilengkapi `Dockerfile`, `docker-compose.yml`, dan skrip portabel `./docker-sync.sh` sehingga seluruh *runtime* Bun, *font* piksel, dan *library* kanvas langsung berjalan di dalam kontainer tanpa perlu menginstal dependensi di *host*.
 
@@ -162,7 +211,43 @@ Players begin from scratch (**Level 1**, **Rp 500,000** starter cash, **Lv.1 Cof
 
 ---
 
-## 3. Architecture & Directory Structure
+## 3. Discord Native UX Architecture
+
+**KARSA** is engineered around modern **discord.js v14** interaction patterns for a responsive, clutter-free server experience:
+
+- **In-Place Dashboard Editing (`deferUpdate()` & `editReply()`)**: Clicking dashboard buttons, switching `/help` handbook chapters, claiming business yields, upgrading stalls, or previewing `/shop` skins updates the existing message in-place without flooding the channel with new replies.
+- **Ephemeral Private Guards (`MessageFlags.Ephemeral`)**: Prerequisite gate warnings, active cooldown notices, interactive `/help` guides, and sensitive financial actions (such as high-interest loan prompts and seizure repayments) are delivered ephemerally so only the invoking player can see them.
+- **Dynamic Discord Timestamps (`<t:UNIX:R>`)**: All action cooldowns (`/work`, `/daily`, `/bisnis`) and hourly market weather transitions use native Discord relative timestamps (e.g., *in 25 seconds*, *in 38 minutes*) that count down live in every user's local timezone.
+- **Rich Embeds + Pixel Canvas Attachments (`attachment://` `1152×648` PNG)**: Procedural pixel-art cards are bound directly inside structured Discord **Rich Embeds** (`EmbedBuilder`) via `attachment://` URIs, combining crisp retro visuals with live macro-economic indicators and action rows.
+- **Interactive Modal Popups (`ModalBuilder` & `TextInputBuilder`)**: Alongside quick-action buttons, players can launch native Discord modal dialogs to input **custom Rupiah amounts** when paying down loan balances (*Cicil Pinjol Nominal Bebas*) or contributing to the server cooperative (*Patungan Koperasi Nominal Bebas*).
+
+---
+
+## 4. Long-Term Replayability: Dilemmas, Dynamic Market Events & Prestige Ranks
+
+### A. 12 Night-Market Work Dilemmas (`/work`)
+Each `/work` shift presents **1 of 12 grounded Indonesian street-market dilemmas** (ranging from authentic Gayo Arabica vs. roasted corn filler, shady counter QR stickers, dual ledger bookkeeping, pure palm sugar vs. artificial sweetener, cup packaging quality, counterfeit QRIS stickers, Saturday night downpours, market officials demanding free coffee, viral iced palm-sugar coffee rushes, jammed burr grinders, food-vlogger endorsements, to crystal ice vs. raw tap-water ice):
+- **Ethical Choice**: Reliable Rupiah payout, **high XP gain**, and increased **Reputation (Karma)**.
+- **Shortcut / Corrupt Choice**: Higher immediate cash payout, but carries an **Audit / Customer Backlash risk (`auditChance`)** that can trigger heavy fines and reputation penalties.
+
+### B. 6 Dynamic Hourly Market Events (`MARKET_EVENTS`)
+Macro-economic and weather conditions rotate **every hour on the hour** (`getCurrentMarketEvent()`), complete with a live `<t:UNIX:R>` countdown to the next shift, dynamically scaling `/work` payouts (`workMultiplier`), inspection probabilities (`auditModifier`), and passive business yields (`bizYieldMultiplier`):
+
+| Hourly Market Event | Economic Modifiers |
+| :--- | :--- |
+| 📉 **IHSG & Rupiah Goyang** (*Market & Currency Volatility*) | Raw material costs rise; **Gold Vault & Business Yield +20%** |
+| 🌧️ **Hujan Deras Malam Minggu** (*Saturday Night Downpour*) | Hot coffee demand surges (**+25% Work Payout**) |
+| ☀️ **Malam Gajian Kantor** (*Payday Evening Rush*) | Delivery drivers & office workers queue up (**+20% Work Payout**) |
+| 🏛️ **Pejabat Bikin Aturan Ngawur** (*Erratic Market Regulations*) | Tightened levies & **+15% Market Audit Risk** |
+| 🌾 **Panen Raya Gayo** (*Bumper Gayo Coffee Harvest*) | Wholesale bean prices drop (**+15% Net Work Margin**) |
+| 🔥 **Festival Kuliner Pasar Malam** (*Night-Market Culinary Festival*) | Peak foot traffic; **Co-op & Business Yield Bonus (+20% Yield)** |
+
+### C. 10 Merchant Prestige Ranks (`PRESTIGE_RANKS`)
+As players accumulate XP and level up, they ascend through **10 Prestige Ranks** (`getRankForLevel(level)`), from **Lv.1 `PERINTIS LAPAK`** (*Stall Pioneer*) up to **Lv.25 `SULTAN KOPERASI NUSANTARA`** (*Archipelago Co-op Sultan*), displayed across embeds and progression badges.
+
+---
+
+## 5. Architecture & Directory Structure
 
 ```text
 kota-mandiri-bot/
@@ -171,12 +256,12 @@ kota-mandiri-bot/
 │   ├── index.ts                  # Gateway entrypoint, rotating presence, --demo & --reset-db CLI
 │   ├── commands/
 │   │   ├── definitions.ts        # 11 Discord Slash Command schemas
-│   │   └── handlers.ts           # Interaction routers, registration gates & button flows
+│   │   └── handlers.ts           # Interaction routers, registration gates, modals & button flows
 │   ├── db/
 │   │   ├── schema.ts             # Drizzle/SQLite table definitions
 │   │   └── index.ts              # ACID transactions, progression gates & cooldown engine
 │   ├── game/
-│   │   ├── mechanics.ts          # Work dilemmas, business catalog & yield calculators
+│   │   ├── mechanics.ts          # 12 work dilemmas, 6 hourly market events, 10 prestige ranks & catalog
 │   │   └── guide.ts              # 4-tab interactive player handbook (/help)
 │   └── renderer/
 │       ├── designSpec.ts         # Mathematical grid constants, bevels & 4 color themes
@@ -195,7 +280,7 @@ kota-mandiri-bot/
 
 ---
 
-## 4. Development, Testing & Docker Deployment
+## 6. Development, Testing & Docker Deployment
 
 ```bash
 # Install dependencies

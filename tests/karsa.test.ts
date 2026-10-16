@@ -26,6 +26,12 @@ import {
 } from "../src/renderer/pixelCard.ts";
 import { renderAvatarV3 } from "../src/renderer/renderAvatarV3.ts";
 import { renderBannerV3 } from "../src/renderer/renderBannerV3.ts";
+import {
+  MARKET_EVENTS,
+  PRESTIGE_RANKS,
+  getCurrentMarketEvent,
+  getRankForLevel,
+} from "../src/game/mechanics.ts";
 
 const TEST_USERS = [
   "test_u_acid",
@@ -241,19 +247,33 @@ describe("KARSA Bot — Unit & Integration Test Suite", () => {
       expect(openSaham.nextLevel).toBe(1);
     });
 
-    test("claimPassiveIncome applies 15% Karma >= 80 fee discount and enforces 5m cooldown when enabled", () => {
+    test("claimPassiveIncome applies 15% Karma >= 80 fee discount, live market multiplier and 5m cooldown when enabled", () => {
       getOrCreateUser("test_u_biz", "JuraganPasif");
+      const { event } = getCurrentMarketEvent();
 
-      // High Karma (>= 80): 5% fee (95% net)
+      // High Karma (>= 80): 5% fee (95% net) × live market multiplier
       sqlite.query("UPDATE users SET karma = 90, balance = 10000000 WHERE id = ?").run("test_u_biz");
       const highKarmaClaim = claimPassiveIncome("test_u_biz", "JuraganPasif", { enforceCooldown: true });
       expect(highKarmaClaim.ok).toBe(true);
       expect(highKarmaClaim.taxSaved).toBe(true);
-      expect(highKarmaClaim.net).toBe(Math.round(highKarmaClaim.gross * 0.95));
+      expect(highKarmaClaim.net).toBe(Math.round(highKarmaClaim.gross * event.passiveMultiplier * 0.95));
 
       // Immediate second claim with enforceCooldown: true MUST be blocked
       const cooldownBlocked = claimPassiveIncome("test_u_biz", "JuraganPasif", { enforceCooldown: true });
       expect(cooldownBlocked.ok).toBe(false);
+    });
+
+    test("dynamic market events rotate hourly with deterministic multi-key output and prestige ranks scale with level", () => {
+      const a = getCurrentMarketEvent(0);
+      const b = getCurrentMarketEvent(3600 * 1000);
+      expect(a.event.id).not.toBe(b.event.id);
+      expect(a.nextChangeUnixSec).toBe(3600);
+      expect(b.nextChangeUnixSec).toBe(2 * 3600);
+      expect(MARKET_EVENTS.some((e) => e.id === "ihsg_goyang")).toBe(true);
+
+      expect(getRankForLevel(1).title).toBe("PERINTIS LAPAK");
+      expect(getRankForLevel(2).title).toBe("BARISTA PASAR");
+      expect(getRankForLevel(30).title).toBe(PRESTIGE_RANKS[PRESTIGE_RANKS.length - 1]!.title);
     });
   });
 

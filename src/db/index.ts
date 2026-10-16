@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { BUSINESS_CATALOG, WORK_DILEMMAS } from "../game/mechanics.ts";
+import { BUSINESS_CATALOG, WORK_DILEMMAS, getCurrentMarketEvent, getRankForLevel } from "../game/mechanics.ts";
 import { SKIN_PALETTES, type SkinId } from "../renderer/sprites.ts";
 
 const DB_PATH = resolve(process.cwd(), "data/kota_mandiri.sqlite");
@@ -341,6 +341,8 @@ export function workShift(
   const dilemma =
     WORK_DILEMMAS[(dilemmaIdx ?? Math.floor(Math.random() * WORK_DILEMMAS.length)) % WORK_DILEMMAS.length]!;
 
+  const { event: marketEvent } = getCurrentMarketEvent();
+
   let deltaRp = 0;
   let karmaDelta = 0;
   let xpDelta = 0;
@@ -352,20 +354,21 @@ export function workShift(
     if (choice === "ethical") {
       const c = dilemma.ethicalChoice;
       const karmaBonus = user.karma >= 80 ? Math.round(c.rewardRp * 0.15) : 0;
-      deltaRp = c.rewardRp + karmaBonus;
+      deltaRp = Math.round((c.rewardRp + karmaBonus) * marketEvent.workMultiplier);
       karmaDelta = c.karmaDelta;
       xpDelta = c.xpDelta;
-      message = `${c.outcomeText}${karmaBonus > 0 ? ` (+Bonus Pelanggan Setia Rp${(karmaBonus / 1000).toLocaleString("id-ID")}Rb)` : ""}`;
+      message = `${c.outcomeText}${karmaBonus > 0 ? ` (+Bonus Pelanggan Setia Rp${(karmaBonus / 1000).toLocaleString("id-ID")}Rb)` : ""} ${marketEvent.title}`;
     } else {
       const c = dilemma.corruptChoice;
       karmaDelta = c.karmaDelta;
       xpDelta = c.xpDelta;
-      if (Math.random() < c.auditChance) {
+      const effectiveAuditChance = Math.max(0.05, Math.min(0.95, c.auditChance + marketEvent.auditBonusChance));
+      if (Math.random() < effectiveAuditChance) {
         busted = true;
         deltaRp = -c.fineRp;
         message = c.bustedText;
       } else {
-        deltaRp = c.rewardRp;
+        deltaRp = Math.round(c.rewardRp * marketEvent.workMultiplier);
         message = c.successText;
       }
     }
@@ -376,8 +379,7 @@ export function workShift(
     const newLevel = Math.max(user.level, Math.floor(newXp / 100) + 1);
     leveledUp = newLevel > user.level;
 
-    const newJobTitle =
-      newLevel >= 5 ? "JURAGAN KEDAI" : newLevel >= 3 ? "PERACIK UTAMA" : newLevel >= 2 ? "BARISTA PASAR" : "PERINTIS LAPAK";
+    const newJobTitle = getRankForLevel(newLevel).title;
     const newBadge =
       user.is_seized === 1
         ? "WARUNG DISEGEL"
@@ -556,6 +558,7 @@ export function claimPassiveIncome(
   }
 
   const bizzes = getUserBusinesses(userId);
+  const { event: marketEvent } = getCurrentMarketEvent();
   const gross = bizzes.reduce((acc, b) => acc + (b.level > 0 ? b.daily_yield : 0), 0);
   if (gross <= 0) {
     return {
@@ -569,7 +572,7 @@ export function claimPassiveIncome(
   }
 
   const taxRate = user.karma >= 80 ? 0.05 : 0.2;
-  const net = Math.round(gross * (1 - taxRate));
+  const net = Math.round(gross * marketEvent.passiveMultiplier * (1 - taxRate));
 
   const tx = sqlite.transaction(() => {
     sqlite

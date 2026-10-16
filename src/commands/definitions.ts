@@ -40,11 +40,17 @@ export const CUSTOM_IDS = {
   BTN_PINJOL_AMBIL: "btn_pinjol_ambil",
   BTN_JUDOL_SPIN: "btn_judol_spin",
   BTN_REPAY_DEBT: "btn_repay_debt",
+  BTN_REPAY_MODAL_OPEN: "btn_repay_modal_open",
+  MODAL_REPAY_DEBT: "modal_repay_debt",
+  INPUT_REPAY_AMOUNT: "input_repay_amount",
   BTN_PINJOL_LUNASI: "btn_pinjol_lunasi",
   BTN_TOBAT_FINANSIAL: "btn_tobat_finansial",
 
   // Koperasi Warga (/koperasi)
   BTN_KOPERASI_PATUNGAN: "btn_koperasi_patungan",
+  BTN_KOPERASI_PATUNGAN_MODAL: "btn_koperasi_patungan_modal",
+  MODAL_COOP_PATUNGAN: "modal_coop_patungan",
+  INPUT_PATUNGAN_AMOUNT: "input_patungan_amount",
   BTN_KOPERASI_TALANGI: "btn_koperasi_talangi",
 
   // Katalog Tema Kartu Usaha (/shop)

@@ -171,6 +171,12 @@ async function routeInteraction(interaction: Interaction): Promise<void> {
         await fn(interaction as StringSelectMenuInteraction);
         return;
       }
+    } else if (interaction.isModalSubmit()) {
+      const fn = handlers.handleModalSubmitInteraction;
+      if (typeof fn === "function") {
+        await fn(interaction);
+        return;
+      }
     }
   } catch (err) {
     console.error("❌ [Router] Terjadi kesalahan saat memproses interaksi:", err);
