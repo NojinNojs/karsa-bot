@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Local SQLite databases
+data/*.sqlite
+data/*.sqlite-*
+data/*.db
+
+# System & logs
+.DS_Store
+*.log
+
+# Explicitly keep pixel fonts and showcase PNG outputs tracked
+!assets/fonts/**
+!output/*.png
