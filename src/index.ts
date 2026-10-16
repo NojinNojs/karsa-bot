@@ -103,13 +103,15 @@ export async function registerSlashCommands(
 
   try {
     if (guildId && guildId.trim().length > 0) {
+      // Clear global commands first so Global + Guild scopes never duplicate in Discord UI!
+      await rest.put(Routes.applicationCommands(clientId), { body: [] });
       console.log(
-        `📡 [REST] Mendaftarkan ${COMMAND_DEFINITIONS.length} Slash Command ke Guild (${guildId})...`
+        `📡 [REST] Membersihkan duplikat Global & mendaftarkan ${COMMAND_DEFINITIONS.length} Slash Command ke Guild (${guildId})...`
       );
       await rest.put(Routes.applicationGuildCommands(clientId, guildId.trim()), {
         body: COMMAND_DEFINITIONS,
       });
-      console.log("✅ [REST] Slash Command Guild berhasil didaftarkan secara instan!");
+      console.log("✅ [REST] Slash Command Guild berhasil didaftarkan secara instan (bebas duplikat)!");
     } else {
       console.log(
         `🌐 [REST] Mendaftarkan ${COMMAND_DEFINITIONS.length} Slash Command secara Global...`
