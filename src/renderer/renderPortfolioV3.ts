@@ -87,7 +87,7 @@ export function renderPortfolioV3(input: PortfolioV3Input): Buffer {
   drawPixelText(ctx, uname, 52, 47, T.crema, T.ink, 1);
   drawPixelText(ctx, (user.job_title || "PERACIK UTAMA").slice(0, 14), 52, 57, T.cyan, T.ink, 1);
 
-  drawBevelPanel(ctx, 52, 68, 90, 14, T, {
+  drawBevelPanel(ctx, 52, 67, 90, 15, T, {
     fill: T.amberLo,
     hi: T.amberHi,
     lo: T.ink,
@@ -97,9 +97,9 @@ export function renderPortfolioV3(input: PortfolioV3Input): Buffer {
     ctx,
     (user.badge || "WARUNG JUJUR").slice(0, 13),
     52,
-    68,
+    67,
     90,
-    14,
+    15,
     T.crema,
     T.ink,
     1
@@ -208,9 +208,15 @@ export function renderPortfolioV3(input: PortfolioV3Input): Buffer {
   // 5. Bottom Footer Bar (x=12, y=184, w=360, h=20) — exact 6px gap below columns
   drawBevelPanel(ctx, 12, 184, 360, 20, T, { pad: 6 });
   drawPixelText(ctx, "CATATAN:", 18, 191, T.amber, T.ink, 1);
+  const cleanQuest = (user.active_quest || "KLIK SEDUH KOPI 3X UNTUK NAIK KE LV.2")
+    .replace(/\/bisnis/gi, "Kelola Usaha")
+    .replace(/\/work/gi, "Seduh Kopi")
+    .replace(/\/koperasi/gi, "Koperasi")
+    .toUpperCase()
+    .slice(0, 44);
   drawPixelText(
     ctx,
-    (user.active_quest || "PATUNGAN GEROBAK KE-2 DI /KOPERASI").toUpperCase().slice(0, 44),
+    cleanQuest,
     72,
     191,
     T.crema,

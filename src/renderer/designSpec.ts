@@ -602,7 +602,7 @@ export function fmtRp(val: number): string {
 
   if (abs >= 1_000_000) {
     const jt = abs / 1_000_000;
-    const formatted = jt.toFixed(1).replace(/\.0$/, "").replace(".", ",");
+    const formatted = jt < 100 ? jt.toFixed(1).replace(".", ",") : Math.round(jt).toString();
     return `${sign}RP ${formatted} JT`;
   }
 

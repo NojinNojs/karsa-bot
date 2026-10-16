@@ -330,41 +330,42 @@ export interface BusinessCatalogItem {
   yieldLabel: (level: number, yieldVal: number) => string;
 }
 
+function formatYieldRp(y: number): string {
+  if (y <= 0) return "TERKUNCI";
+  if (y < 1_000_000) return `+${Math.round(y / 1_000)} RB/HR`;
+  return `+${(y / 1_000_000).toFixed(1).replace(".", ",")} JT/HR`;
+}
+
 export const BUSINESS_CATALOG: Record<string, BusinessCatalogItem> = {
   kedai_kopi: {
     bizType: "kedai_kopi",
     name: "Kedai Kopi Karsa",
-    subtitle: "Gerobak kopi",
+    subtitle: "Gerobak",
     baseCost: 1_500_000,
     baseYield: 350_000,
     requiredKedaiLevel: 1,
     requiredKarma: 0,
-    yieldLabel: (_lvl, y) => {
-      if (y <= 0) return "RP 0/HR";
-      if (y < 1_000_000) return `+${Math.round(y / 1_000)}RB/HR`;
-      return `+${(y / 1_000_000).toFixed(1).replace(".", ",")}JT/HR`;
-    },
+    yieldLabel: (_lvl, y) => formatYieldRp(y),
   },
   brankas_darurat: {
     bizType: "brankas_darurat",
     name: "Tabungan Emas",
-    subtitle: "Kebal sita • butuh Kedai Lv.2",
+    subtitle: "Kebal sita",
     baseCost: 2_000_000,
     baseYield: 250_000,
     requiredKedaiLevel: 2,
     requiredKarma: 0,
-    yieldLabel: (lvl) =>
-      lvl <= 0 ? "TERKUNCI" : `+${(4.5 + lvl * 0.25).toFixed(1).replace(".", ",")}%/BLN`,
+    yieldLabel: (_lvl, y) => formatYieldRp(y),
   },
   saham_koperasi: {
     bizType: "saham_koperasi",
     name: "Koperasi Warga",
-    subtitle: "Bagi hasil • butuh Kedai Lv.3",
+    subtitle: "Bagi hasil",
     baseCost: 3_000_000,
     baseYield: 400_000,
     requiredKedaiLevel: 3,
     requiredKarma: 65,
-    yieldLabel: (lvl) => (lvl <= 0 ? "TERKUNCI" : `+${9 + lvl}% BAGI`),
+    yieldLabel: (_lvl, y) => formatYieldRp(y),
   },
 };
 
@@ -372,13 +373,13 @@ export function formatRpShort(val: number): string {
   const abs = Math.abs(val);
   if (abs >= 1_000_000) {
     const jt = val / 1_000_000;
-    return `Rp${jt.toFixed(1).replace(".", ",")}jt`;
+    return `Rp ${jt.toFixed(1).replace(/\.0$/, "").replace(".", ",")}Jt`;
   }
   if (abs >= 1_000) {
     const rb = Math.round(val / 1_000);
-    return `Rp${rb.toLocaleString("id-ID")}K`;
+    return `Rp ${rb.toLocaleString("id-ID")}Rb`;
   }
-  return `Rp${val}`;
+  return `Rp ${val}`;
 }
 
 export function formatWalletK(val: number): string {

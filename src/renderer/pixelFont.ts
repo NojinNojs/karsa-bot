@@ -922,8 +922,9 @@ export function drawPixelTextCentered(
 ): { x: number; y: number; width: number; height: number } {
   const s = Math.max(1, Math.round(scale));
   const metrics = measurePixelText(text, s);
+  const visualH = metrics.height + (shadowColor ? s : 0);
   const tx = Math.round(boxX) + Math.floor((Math.round(boxW) - metrics.width) / 2);
-  const ty = Math.round(boxY) + Math.floor((Math.round(boxH) - metrics.height) / 2);
+  const ty = Math.round(boxY) + Math.floor((Math.round(boxH) - visualH) / 2);
 
   drawPixelText(ctx, text, tx, ty, color, shadowColor, s);
   return { x: tx, y: ty, width: metrics.width, height: metrics.height };

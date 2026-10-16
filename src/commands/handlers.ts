@@ -264,9 +264,9 @@ function buildPortfolioEmbed(
   const { event, nextChangeUnixSec } = getCurrentMarketEvent();
   const rankInfo = getRankForLevel(user.level);
 
-  const workTimer = buildCooldownTag(user.last_work_at, WORK_COOLDOWN_MS, "Siap");
-  const omzetTimer = buildCooldownTag(user.last_passive_at, PASSIVE_COOLDOWN_MS, "Siap");
-  const dailyTimer = buildCooldownTag(user.last_daily_at, DAILY_COOLDOWN_MS, "Siap");
+  const workTimer = buildCooldownTag(user.last_work_at, WORK_COOLDOWN_MS, "✅ Siap");
+  const omzetTimer = buildCooldownTag(user.last_passive_at, PASSIVE_COOLDOWN_MS, "✅ Siap");
+  const dailyTimer = buildCooldownTag(user.last_daily_at, DAILY_COOLDOWN_MS, "✅ Siap");
 
   const embedColor = user.is_seized === 1 ? 0xef4444 : user.karma >= 80 ? 0xf59e0b : 0x10b981;
 
@@ -275,8 +275,8 @@ function buildPortfolioEmbed(
     .setTitle(`🪪 ${user.username} • Lv.${user.level} ${rankInfo.title}`)
     .setDescription(
       (headline ? `${headline}\n\n` : "") +
-        `☕ ${workTimer}  •  💰 ${omzetTimer}  •  ☀️ ${dailyTimer}\n` +
-        `${event.title} <t:${nextChangeUnixSec}:R>`
+        `**Seduh:** ${workTimer}  •  **Omzet:** ${omzetTimer}  •  **Harian:** ${dailyTimer}\n` +
+        `${event.title} *(${event.goldBonusNote} • <t:${nextChangeUnixSec}:R>)*`
     )
     .setImage("attachment://karsa-portfolio.png");
 }

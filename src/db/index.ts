@@ -181,28 +181,28 @@ export function hasUserAccount(userId: string): boolean {
 
 export function computeProgressionQuest(user: UserRow, businesses: UserBusinessRow[]): string {
   if (user.is_seized === 1 || user.pinjol_debt > 0) {
-    return "Lunasi tagihan di /jalan-pintas untuk buka segel";
+    return "Bayar segel di tombol Bayar Segel / Talangan";
   }
   const kedai = businesses.find((b) => b.biz_type === "kedai_kopi");
   const brankas = businesses.find((b) => b.biz_type === "brankas_darurat");
   const saham = businesses.find((b) => b.biz_type === "saham_koperasi");
 
   if (user.level < 2) {
-    return "Seduh 3 kloter di /work untuk naik ke Lv.2";
+    return "Klik Seduh Kopi 3x untuk naik ke Lv.2";
   }
   if ((kedai?.level ?? 1) < 2) {
-    return "Upgrade Kedai Kopi ke Lv.2 di /bisnis";
+    return "Naikkan Kedai Kopi ke Lv.2 di Kelola Usaha";
   }
   if ((brankas?.level ?? 0) < 1) {
-    return "Buka Tabungan Emas Lv.1 di /bisnis";
+    return "Buka Tabungan Emas Lv.1 di Kelola Usaha";
   }
   if ((kedai?.level ?? 1) < 3) {
-    return "Upgrade Kedai Kopi ke Lv.3 di /bisnis";
+    return "Naikkan Kedai Kopi ke Lv.3 di Kelola Usaha";
   }
   if ((saham?.level ?? 0) < 1) {
-    return "Buka Saham Koperasi Lv.1 (Nama Baik min. 65)";
+    return "Buka Koperasi Warga Lv.1 di Kelola Usaha";
   }
-  return "Patungan kas bersama atau tebus rekan di /koperasi";
+  return "Patungan kas atau tebus warga di Koperasi";
 }
 
 export function registerNewUser(
@@ -954,11 +954,11 @@ export function getTopLeaderboard(limit = 5): LeaderboardEntry[] {
          u.karma AS karma,
          u.balance AS balance,
          COALESCE(SUM(b.value), 0) AS businessValue,
-         (u.balance + u.emergency_fund + COALESCE(SUM(b.value), 0)) AS netWorth
+         (u.balance + COALESCE(SUM(b.value), 0)) AS netWorth
        FROM users u
        LEFT JOIN user_businesses b ON u.id = b.user_id
        GROUP BY u.id
-       ORDER BY (u.balance + u.emergency_fund + COALESCE(SUM(b.value), 0)) DESC, u.karma DESC
+       ORDER BY (u.balance + COALESCE(SUM(b.value), 0)) DESC, u.karma DESC
        LIMIT ?`
     )
     .all(safeLimit) as Array<Omit<LeaderboardEntry, "rank">>;
