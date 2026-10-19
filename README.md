@@ -240,7 +240,7 @@ Macro-economic and weather conditions rotate **every hour on the hour** (`getCur
 | ☀️ **Malam Gajian Kantor** (*Payday Evening Rush*) | Delivery drivers & office workers queue up (**+20% Work Payout**) |
 | 🏛️ **Pejabat Bikin Aturan Ngawur** (*Erratic Market Regulations*) | Tightened levies & **+15% Market Audit Risk** |
 | 🌾 **Panen Raya Gayo** (*Bumper Gayo Coffee Harvest*) | Wholesale bean prices drop (**+15% Net Work Margin**) |
-| 🔥 **Festival Kuliner Pasar Malam** (*Night-Market Culinary Festival*) | Peak foot traffic; **Co-op & Business Yield Bonus (+20% Yield)** |
+| 🔥 **Festival Kuliner Pasar Malam** (*Night-Market Culinary Festival*) | Peak foot tNojinc; **Co-op & Business Yield Bonus (+20% Yield)** |
 
 ### C. 10 Merchant Prestige Ranks (`PRESTIGE_RANKS`)
 As players accumulate XP and level up, they ascend through **10 Prestige Ranks** (`getRankForLevel(level)`), from **Lv.1 `PERINTIS LAPAK`** (*Stall Pioneer*) up to **Lv.25 `SULTAN KOPERASI NUSANTARA`** (*Archipelago Co-op Sultan*), displayed across embeds and progression badges.
