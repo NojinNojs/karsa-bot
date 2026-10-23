@@ -18,3 +18,7 @@ data/*.db
 # Explicitly keep pixel fonts and showcase PNG outputs tracked
 !assets/fonts/**
 !output/*.png
+
+# nix
+.direnv/
+result
